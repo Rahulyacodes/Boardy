@@ -79,7 +79,10 @@ router.get('/:boardId', authenticate, authorizeBoard, async (req, res,next) => {
         })
     )
 
-    res.json({...board.toObject(), lists : listWithCards})
+    // Populate member details (username & email)
+    const populatedBoard = await Board.findById(board._id).populate('members.userId', 'username email')
+
+    res.json({ ...(populatedBoard ? populatedBoard.toObject() : board.toObject()), lists: listWithCards })
 
     } catch (err){
         next(err)
@@ -161,12 +164,50 @@ router.post('/:boardId/members', authenticate, authorizeBoard, requireOwner, asy
       return next(err)
     }
 
-    req.board.members.push({ userId: userToAdd._id, role: 'member' })
+    req.board.members.push({ userId: userToAdd._id, role: req.body.role || 'member' })
     await req.board.save()
+    const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
 
-    res.status(201).json({ message: `${username} added to the board` })
+    res.status(201).json({ message: `${username} added to the board`, board: updatedBoard })
 
     } catch(err){
+        next(err)
+    }
+})
+
+//---------------------------------------- Remove Member route ------------------------------------------
+// DELETE /api/boards/:boardId/members/:userId
+router.delete('/:boardId/members/:userId', authenticate, authorizeBoard, requireOwner, async (req, res, next) => {
+    try {
+        const { userId } = req.params
+        req.board.members = req.board.members.filter(
+            (member) => member.userId.toString() !== userId
+        )
+        await req.board.save()
+        const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
+        res.json({ message: 'Member removed successfully', board: updatedBoard })
+    } catch (err) {
+        next(err)
+    }
+})
+
+//---------------------------------------- Update Member Role route ------------------------------------------
+// PATCH /api/boards/:boardId/members/:userId
+router.patch('/:boardId/members/:userId', authenticate, authorizeBoard, requireOwner, async (req, res, next) => {
+    try {
+        const { userId } = req.params
+        const { role } = req.body
+        const memberIndex = req.board.members.findIndex(
+            (member) => member.userId.toString() === userId
+        )
+        if (memberIndex !== -1) {
+            req.board.members[memberIndex].role = role || 'member'
+            await req.board.save()
+            const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
+            return res.json({ message: 'Role updated successfully', board: updatedBoard })
+        }
+        res.status(404).json({ error: 'Member not found' })
+    } catch (err) {
         next(err)
     }
 })

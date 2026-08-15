@@ -1,7 +1,6 @@
-// src/components/layout/BoardNavbar.jsx
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { updateBoard, deleteBoard } from '../../api'
+import { updateBoard, deleteBoard, inviteMember, removeMember, updateMemberRole, getBoard } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 
 export const GRADIENT_PRESETS = [
@@ -23,6 +22,13 @@ function BoardNavbar({ board, onBoardUpdate }) {
   const [titleText, setTitleText] = useState(board?.title || '')
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+
+  // Share form states
+  const [inviteUsername, setInviteUsername] = useState('')
+  const [inviteRole, setInviteRole] = useState('member')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [shareMsg, setShareMsg] = useState({ text: '', type: '' })
+  const [copiedLink, setCopiedLink] = useState(false)
 
   const dropdownRef = useRef(null)
 
@@ -86,10 +92,91 @@ function BoardNavbar({ board, onBoardUpdate }) {
     }
   }
 
-  const userInitial = user?.username ? user.username.slice(0, 2).toUpperCase() : 'ME'
+  const handleInviteUser = async (e) => {
+    e.preventDefault()
+    if (!inviteUsername.trim()) return
+    setInviteLoading(true)
+    setShareMsg({ text: '', type: '' })
+    try {
+      const res = await inviteMember(board._id, { username: inviteUsername.trim(), role: inviteRole })
+      setShareMsg({ text: res.data.message || 'User invited!', type: 'success' })
+      setInviteUsername('')
+      if (res.data.board && onBoardUpdate) {
+        onBoardUpdate(res.data.board)
+      } else if (onBoardUpdate) {
+        const freshBoard = await getBoard(board._id)
+        onBoardUpdate(freshBoard.data)
+      }
+    } catch (err) {
+      setShareMsg({
+        text: err.response?.data?.error || err.response?.data?.message || 'Failed to invite user',
+        type: 'error'
+      })
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleRemoveMember = async (memberUserId) => {
+    if (!window.confirm('Remove member from board?')) return
+    try {
+      const res = await removeMember(board._id, memberUserId)
+      setShareMsg({ text: 'Member removed', type: 'success' })
+      if (res.data.board && onBoardUpdate) {
+        onBoardUpdate(res.data.board)
+      } else if (onBoardUpdate) {
+        const freshBoard = await getBoard(board._id)
+        onBoardUpdate(freshBoard.data)
+      }
+    } catch (err) {
+      setShareMsg({ text: 'Failed to remove member', type: 'error' })
+    }
+  }
+
+  const handleRoleChange = async (memberUserId, newRole) => {
+    if (newRole === 'remove') {
+      handleRemoveMember(memberUserId)
+      return
+    }
+    try {
+      const res = await updateMemberRole(board._id, memberUserId, newRole)
+      setShareMsg({ text: 'Member role updated!', type: 'success' })
+      if (res.data.board && onBoardUpdate) {
+        onBoardUpdate(res.data.board)
+      } else if (onBoardUpdate) {
+        const freshBoard = await getBoard(board._id)
+        onBoardUpdate(freshBoard.data)
+      }
+    } catch (err) {
+      setShareMsg({ text: 'Failed to update role', type: 'error' })
+    }
+  }
+
+  const handleCopyBoardLink = () => {
+    navigator.clipboard.writeText(window.location.href)
+    setCopiedLink(true)
+    setTimeout(() => setCopiedLink(false), 2000)
+  }
+
+  const getInitials = (name) => {
+    if (!name) return 'U'
+    const parts = name.trim().split(' ')
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+    return name.slice(0, 2).toUpperCase()
+  }
+
+  // Members list from board (sorted owner first)
+  const rawMembers = board?.members || []
+  const sortedMembers = [...rawMembers].sort((a, b) => {
+    if (a.role === 'owner') return -1
+    if (b.role === 'owner') return 1
+    return 0
+  })
+
+  const isOwner = board?.ownerId === user?.id || rawMembers.some(m => (m.userId?._id || m.userId) === user?.id && m.role === 'owner')
 
   return (
-    <header className="w-full px-4 py-3 flex items-center justify-between backdrop-blur-md bg-black/25 border-b border-white/10 text-white z-40 sticky top-0">
+    <header className="w-full px-4 py-3 flex items-center justify-between backdrop-blur-md bg-black/25 border-b border-white/10 text-white z-40 sticky top-0 select-none">
       {/* Left side: Board title & dropdown menu */}
       <div className="flex items-center gap-3 relative" ref={dropdownRef}>
         {isEditingTitle ? (
@@ -188,7 +275,7 @@ function BoardNavbar({ board, onBoardUpdate }) {
         )}
       </div>
 
-      {/* Right side: Star, Share, Avatars, Actions */}
+      {/* Right side: Star, Member Avatar Bubbles, Share Button, Dashboard Shortcut */}
       <div className="flex items-center gap-3">
         {/* Star Button */}
         <button
@@ -203,15 +290,31 @@ function BoardNavbar({ board, onBoardUpdate }) {
           </svg>
         </button>
 
-        {/* Avatar Badge */}
-        <div className="w-8 h-8 rounded-full bg-purple-600 border border-white/30 flex items-center justify-center font-bold text-xs shadow text-white">
-          {userInitial}
+        {/* Member Avatar Bubbles */}
+        <div className="flex items-center -space-x-2 overflow-hidden">
+          {sortedMembers.map((m, idx) => {
+            const memberObj = m.userId || {}
+            const username = memberObj.username || 'User'
+            const initials = getInitials(username)
+            return (
+              <div
+                key={m._id || idx}
+                title={`${username} (${m.role})`}
+                className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 border-2 border-[#181820] flex items-center justify-center font-bold text-[11px] text-white shadow"
+              >
+                {initials}
+              </div>
+            )
+          })}
         </div>
 
         {/* Share Button */}
         <button
-          onClick={() => setShareModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-all text-xs font-semibold text-white shadow-sm"
+          onClick={() => {
+            setShareModalOpen(true)
+            setShareMsg({ text: '', type: '' })
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all text-xs font-semibold text-white shadow-md"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -231,45 +334,151 @@ function BoardNavbar({ board, onBoardUpdate }) {
         </button>
       </div>
 
-      {/* Share Modal Placeholder */}
+      {/* Share Board Modal - Positioned below BoardNavbar at top-[110px] */}
       {shareModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1C1C24] border border-[#2A2A35] rounded-2xl p-6 w-full max-w-md shadow-2xl text-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg">Share Board</h3>
+        <div className="fixed inset-0 z-50 flex justify-center items-start pt-[108px] bg-black/50 backdrop-blur-sm" onClick={() => setShareModalOpen(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#22232B] border border-[#323342] rounded-2xl p-6 w-full max-w-lg shadow-2xl text-white my-auto max-h-[calc(100vh-130px)] overflow-y-auto"
+          >
+            {/* Header: Title with icon + Close button in top-right */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shadow-sm">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                </div>
+                <h3 className="font-bold text-lg text-white tracking-tight">Share board</h3>
+              </div>
               <button
                 onClick={() => setShareModalOpen(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mb-4">
-              Invite members to collaborate on <strong>{board?.title}</strong>
-            </p>
-            <div className="flex gap-2 mb-4">
-              <input
-                type="text"
-                placeholder="Enter username..."
-                className="flex-1 bg-[#0F0F13] border border-[#2A2A35] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
-              />
-              <button
-                onClick={() => {
-                  alert('Share invitation feature coming soon!')
-                  setShareModalOpen(false)
-                }}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold transition-colors"
-              >
-                Invite
-              </button>
-            </div>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShareModalOpen(false)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs"
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-xs font-semibold text-gray-200 transition-colors"
               >
                 Close
               </button>
+            </div>
+
+            {/* Invite Form Row: Input + Role Dropdown + Share Button */}
+            <form onSubmit={handleInviteUser} className="flex gap-2 mb-4">
+              <input
+                type="text"
+                placeholder="Email address or username"
+                value={inviteUsername}
+                onChange={(e) => setInviteUsername(e.target.value)}
+                className="flex-1 bg-[#181824] border border-[#323342] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+              />
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                className="bg-[#181824] border border-[#323342] text-white rounded-xl px-2.5 py-2 text-xs focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+              </select>
+              <button
+                type="submit"
+                disabled={inviteLoading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-semibold text-white transition-colors"
+              >
+                {inviteLoading ? 'Sharing...' : 'Share'}
+              </button>
+            </form>
+
+            {/* Share link row */}
+            <div className="flex items-center justify-between bg-[#181824] border border-[#323342] rounded-xl px-3 py-2.5 mb-5 text-xs">
+              <div className="flex items-center gap-2 text-gray-300">
+                <span>🔗</span>
+                <span>Share this board with a link</span>
+              </div>
+              <button
+                onClick={handleCopyBoardLink}
+                className="text-blue-400 hover:text-blue-300 font-semibold underline text-xs transition-colors"
+              >
+                {copiedLink ? 'Copied link!' : 'Create link'}
+              </button>
+            </div>
+
+            {/* Status Message */}
+            {shareMsg.text && (
+              <p
+                className={`text-xs mb-4 p-2.5 rounded-xl border ${
+                  shareMsg.type === 'error'
+                    ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                    : 'bg-green-500/10 border-green-500/30 text-green-300'
+                }`}
+              >
+                {shareMsg.text}
+              </p>
+            )}
+
+            {/* Tabs Header */}
+            <div className="flex items-center gap-4 border-b border-[#323342] pb-2 mb-3">
+              <button className="text-xs font-bold text-blue-400 border-b-2 border-blue-500 pb-1">
+                Board members {sortedMembers.length}
+              </button>
+              <button className="text-xs font-medium text-gray-400 hover:text-gray-200 pb-1">
+                Join requests
+              </button>
+            </div>
+
+            {/* Sequential Board Members List (Owner first) */}
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {sortedMembers.map((m, idx) => {
+                const memberObj = m.userId || {}
+                const uName = memberObj.username || 'User'
+                const uEmail = memberObj.email || ''
+                const uId = memberObj._id || memberObj
+                const initials = getInitials(uName)
+                const isCurrentUser = (uId === user?.id)
+
+                return (
+                  <div
+                    key={m._id || idx}
+                    className="flex items-center justify-between bg-[#181824] border border-[#323342] rounded-xl px-3 py-2.5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-xs text-white">
+                        {initials}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white flex items-center gap-1">
+                          <span>{uName}</span>
+                          {isCurrentUser && <span className="text-gray-400 font-normal">(you)</span>}
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          @{uName.toLowerCase().replace(/\s+/g, '')} {uEmail ? `• ${uEmail}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Member Role Dropdown / Badge */}
+                    <div className="flex items-center gap-2">
+                      {m.role === 'owner' ? (
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-300 flex items-center gap-1">
+                          <span>Owner</span>
+                          <span className="text-[10px]">▾</span>
+                        </span>
+                      ) : isOwner ? (
+                        <select
+                          value={m.role}
+                          onChange={(e) => handleRoleChange(uId, e.target.value)}
+                          className="bg-[#22232B] border border-[#323342] text-xs text-gray-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer"
+                        >
+                          <option value="member">Member</option>
+                          <option value="viewer">Viewer</option>
+                          <option value="remove">Remove</option>
+                        </select>
+                      ) : (
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white/10 text-gray-300 capitalize flex items-center gap-1">
+                          <span>{m.role}</span>
+                          <span className="text-[10px]">▾</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -279,3 +488,5 @@ function BoardNavbar({ board, onBoardUpdate }) {
 }
 
 export default BoardNavbar
+
+

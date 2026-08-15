@@ -1,4 +1,3 @@
-// src/pages/BoardPage.jsx
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -15,6 +14,7 @@ import Navbar from '../components/layout/Navbar'
 import BoardNavbar from '../components/layout/BoardNavbar'
 import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
+import CardDetailModal from '../components/board/CardDetailModal'
 
 function BoardPage() {
   const { boardId } = useParams()
@@ -335,6 +335,9 @@ function BoardPage() {
                   <div className="flex-1 overflow-y-auto max-h-[calc(100vh-280px)] space-y-2 pr-0.5 min-h-[40px]">
                     {list.cards?.map((card) => {
                       const isBeingDragged = draggedCard?.cardId === card._id
+                      const hasLabels = card.labels && card.labels.length > 0
+                      const hasChecklist = card.checklist && card.checklist.length > 0
+                      const completedChecklist = hasChecklist ? card.checklist.filter((c) => c.completed).length : 0
 
                       return (
                         <div
@@ -345,24 +348,29 @@ function BoardPage() {
                             setDraggedCard(null)
                             setDragOverListId(null)
                           }}
+                          onClick={() => setEditingCard({ ...card, listTitle: list.title })}
                           className={`group relative bg-[#22222B]/90 hover:bg-[#2A2A36] border border-white/10 hover:border-purple-500/40 rounded-xl p-3 text-xs text-gray-100 shadow-md transition-all cursor-grab active:cursor-grabbing ${
                             isBeingDragged ? 'opacity-30 scale-95 border-dashed border-purple-400' : ''
                           }`}
                         >
+                          {/* Mini Color Label Chips */}
+                          {hasLabels && (
+                            <div className="flex flex-wrap gap-1 mb-1.5">
+                              {card.labels.map((l, i) => (
+                                <span
+                                  key={i}
+                                  className="h-1.5 w-6 rounded-full inline-block shadow-sm"
+                                  style={{ background: l.color }}
+                                  title={l.name || 'Label'}
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Card Title & Hover Delete Action */}
                           <div className="flex justify-between items-start">
                             <span className="font-medium text-gray-200 leading-snug">{card.title}</span>
                             <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setEditingCard(card)
-                                  setEditCardTitle(card.title)
-                                }}
-                                className="text-gray-400 hover:text-purple-300 p-0.5"
-                                title="Edit card"
-                              >
-                                ✏️
-                              </button>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -375,6 +383,24 @@ function BoardPage() {
                               </button>
                             </div>
                           </div>
+
+                          {/* Badges Footer: Due Date & Checklist Progress */}
+                          {(card.dueDate || hasChecklist) && (
+                            <div className="flex items-center gap-2 mt-2 pt-1 border-t border-white/5 text-[10px] text-gray-400 font-medium">
+                              {card.dueDate && (
+                                <span className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-gray-300">
+                                  🕒 {card.dueDate}
+                                </span>
+                              )}
+                              {hasChecklist && (
+                                <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                                  completedChecklist === card.checklist.length ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-white/5 border border-white/10 text-gray-300'
+                                }`}>
+                                  ☑ {completedChecklist}/{card.checklist.length}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -488,38 +514,17 @@ function BoardPage() {
         </div>
       )}
 
-      {/* Edit Card Modal */}
+      {/* Card Detail Modal (Description, Labels, Due Date, Checklist) */}
       {editingCard && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <form
-            onSubmit={handleUpdateCard}
-            className="bg-[#1C1C24] border border-[#2A2A35] rounded-2xl p-6 w-full max-w-md shadow-2xl text-white"
-          >
-            <h3 className="text-base font-bold mb-4">Edit Card</h3>
-            <input
-              type="text"
-              autoFocus
-              value={editCardTitle}
-              onChange={(e) => setEditCardTitle(e.target.value)}
-              className="w-full bg-[#0F0F13] border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 mb-4"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingCard(null)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold"
-              >
-                Save
-              </button>
-            </div>
-          </form>
-        </div>
+        <CardDetailModal
+          card={editingCard}
+          listTitle={editingCard.listTitle}
+          onClose={() => setEditingCard(null)}
+          onCardUpdate={(updatedCard) => {
+            fetchBoardData()
+            setEditingCard((prev) => (prev ? { ...prev, ...updatedCard } : null))
+          }}
+        />
       )}
 
       {/* Bottom Floating Navigation Dock */}

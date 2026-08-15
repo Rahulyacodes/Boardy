@@ -18,7 +18,23 @@ const cardSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'List',     
     required: true
-  }
+  },
+  labels: [
+    {
+      name: { type: String, default: '' },
+      color: { type: String, required: true }
+    }
+  ],
+  dueDate: {
+    type: String,
+    default: ''
+  },
+  checklist: [
+    {
+      title: { type: String, required: true },
+      completed: { type: Boolean, default: false }
+    }
+  ]
 }, { timestamps: true })
 
 module.exports = mongoose.model('Card', cardSchema)

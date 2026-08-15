@@ -37,6 +37,8 @@ export const getBoard     = (id)     => api.get(`/boards/${id}`)
 export const updateBoard  = (id, data) => api.patch(`/boards/${id}`, data)
 export const deleteBoard  = (id)     => api.delete(`/boards/${id}`)
 export const inviteMember = (id, data) => api.post(`/boards/${id}/members`, data)
+export const removeMember = (id, userId) => api.delete(`/boards/${id}/members/${userId}`)
+export const updateMemberRole = (id, userId, role) => api.patch(`/boards/${id}/members/${userId}`, { role })
 
 // ---- lists ----
 export const createList = (boardId, data) => api.post(`/boards/${boardId}/lists`, data)

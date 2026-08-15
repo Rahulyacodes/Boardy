@@ -44,14 +44,14 @@ router.post('/:listId/cards', authenticate, authorizeList, async (req, res, next
 // PATCH /api/cards/:cardId
 router.patch('/:cardId', authenticate, authorizeCard, async (req, res, next) => {
   try {
-    const { title, description } = req.body
+    const { title, description, labels, dueDate, checklist } = req.body
 
-    // build update object with only fields that were sent
     const updates = {}
-    if (title)       updates.title       = title
-    if (description) updates.description = description
-    // instead of conditionally updating each field directly on db object,
-    // we build an updates object and pass it all at once to findByIdAndUpdate
+    if (title !== undefined)       updates.title       = title
+    if (description !== undefined) updates.description = description
+    if (labels !== undefined)      updates.labels      = labels
+    if (dueDate !== undefined)     updates.dueDate     = dueDate
+    if (checklist !== undefined)   updates.checklist   = checklist
 
     const updated = await Card.findByIdAndUpdate(
       req.card._id,

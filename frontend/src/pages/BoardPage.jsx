@@ -43,6 +43,10 @@ function BoardPage() {
   const [editingCard, setEditingCard] = useState(null)
   const [editCardTitle, setEditCardTitle] = useState('')
 
+  // Filter states
+  const [filterMemberId, setFilterMemberId] = useState(null)
+  const [filterText, setFilterText] = useState('')
+
   // Drag and Drop state
   const [draggedCard, setDraggedCard] = useState(null)
   const [dragOverListId, setDragOverListId] = useState(null)
@@ -246,7 +250,14 @@ function BoardPage() {
       <Navbar />
 
       {/* Board Specific Navbar */}
-      <BoardNavbar board={board} onBoardUpdate={handleBoardUpdate} />
+      <BoardNavbar
+        board={board}
+        onBoardUpdate={handleBoardUpdate}
+        filterMemberId={filterMemberId}
+        setFilterMemberId={setFilterMemberId}
+        filterText={filterText}
+        setFilterText={setFilterText}
+      />
 
       {/* Content Body */}
       {activeTab === 'planner' ? (
@@ -265,10 +276,27 @@ function BoardPage() {
         </div>
       ) : (
         <div className="flex-1 overflow-x-auto p-6 relative z-10">
-          <div className="flex items-start gap-4 pb-24 min-h-[calc(100vh-140px)]">
-            {/* List Columns */}
+          <div className="flex items-start gap-4 h-full min-h-[calc(100vh-180px)] pb-12">
+            {/* Render lists */}
             {board?.lists?.map((list) => {
-              const cardCount = list.cards ? list.cards.length : 0
+              const rawCards = list.cards || []
+              const filteredCards = rawCards.filter((card) => {
+                if (filterMemberId) {
+                  const isAssigned = (card.assignedMembers || []).some(
+                    (m) => (m._id || m) === filterMemberId
+                  )
+                  if (!isAssigned) return false
+                }
+                if (filterText.trim()) {
+                  const q = filterText.toLowerCase().trim()
+                  const matchTitle = card.title?.toLowerCase().includes(q)
+                  const matchDesc = card.description?.toLowerCase().includes(q)
+                  if (!matchTitle && !matchDesc) return false
+                }
+                return true
+              })
+
+              const cardCount = filteredCards.length
               const isDragOver = dragOverListId === list._id
 
               return (
@@ -333,11 +361,12 @@ function BoardPage() {
 
                   {/* List Cards Container */}
                   <div className="flex-1 overflow-y-auto max-h-[calc(100vh-280px)] space-y-2 pr-0.5 min-h-[40px]">
-                    {list.cards?.map((card) => {
+                    {filteredCards.map((card) => {
                       const isBeingDragged = draggedCard?.cardId === card._id
                       const hasLabels = card.labels && card.labels.length > 0
                       const hasChecklist = card.checklist && card.checklist.length > 0
                       const completedChecklist = hasChecklist ? card.checklist.filter((c) => c.completed).length : 0
+                      const hasAssigned = card.assignedMembers && card.assignedMembers.length > 0
 
                       return (
                         <div
@@ -384,20 +413,41 @@ function BoardPage() {
                             </div>
                           </div>
 
-                          {/* Badges Footer: Due Date & Checklist Progress */}
-                          {(card.dueDate || hasChecklist) && (
-                            <div className="flex items-center gap-2 mt-2 pt-1 border-t border-white/5 text-[10px] text-gray-400 font-medium">
-                              {card.dueDate && (
-                                <span className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-gray-300">
-                                  🕒 {card.dueDate}
-                                </span>
-                              )}
-                              {hasChecklist && (
-                                <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 ${
-                                  completedChecklist === card.checklist.length ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-white/5 border border-white/10 text-gray-300'
-                                }`}>
-                                  ☑ {completedChecklist}/{card.checklist.length}
-                                </span>
+                          {/* Badges Footer: Due Date, Checklist Progress & Assigned Member Avatars */}
+                          {(card.dueDate || hasChecklist || hasAssigned) && (
+                            <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-white/5 text-[10px] text-gray-400 font-medium">
+                              <div className="flex items-center gap-2">
+                                {card.dueDate && (
+                                  <span className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-gray-300">
+                                    🕒 {card.dueDate}
+                                  </span>
+                                )}
+                                {hasChecklist && (
+                                  <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                                    completedChecklist === card.checklist.length ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-white/5 border border-white/10 text-gray-300'
+                                  }`}>
+                                    ☑ {completedChecklist}/{card.checklist.length}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Assigned Member Avatars */}
+                              {hasAssigned && (
+                                <div className="flex items-center -space-x-1.5 overflow-hidden ml-auto">
+                                  {card.assignedMembers.map((m, idx) => {
+                                    const uName = m.username || 'User'
+                                    const initials = uName.slice(0, 2).toUpperCase()
+                                    return (
+                                      <div
+                                        key={m._id || idx}
+                                        title={`Assigned to ${uName}`}
+                                        className="w-5 h-5 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 border border-[#22222B] flex items-center justify-center font-bold text-[9px] text-white shadow-sm"
+                                      >
+                                        {initials}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               )}
                             </div>
                           )}
@@ -519,6 +569,7 @@ function BoardPage() {
         <CardDetailModal
           card={editingCard}
           listTitle={editingCard.listTitle}
+          boardMembers={board?.members}
           onClose={() => setEditingCard(null)}
           onCardUpdate={(updatedCard) => {
             fetchBoardData()

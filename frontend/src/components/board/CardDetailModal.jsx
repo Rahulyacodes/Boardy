@@ -11,12 +11,13 @@ export const LABEL_COLORS = [
   { color: '#8B5CF6', name: 'Tech Debt (Purple)' },
 ]
 
-function CardDetailModal({ card, listTitle, onClose, onCardUpdate }) {
+function CardDetailModal({ card, listTitle, boardMembers = [], onClose, onCardUpdate }) {
   const [title, setTitle] = useState(card?.title || '')
   const [description, setDescription] = useState(card?.description || '')
   const [labels, setLabels] = useState(card?.labels || [])
   const [dueDate, setDueDate] = useState(card?.dueDate || '')
   const [checklist, setChecklist] = useState(card?.checklist || [])
+  const [assignedMembers, setAssignedMembers] = useState(card?.assignedMembers || [])
   const [newCheckitemTitle, setNewCheckitemTitle] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -26,6 +27,7 @@ function CardDetailModal({ card, listTitle, onClose, onCardUpdate }) {
     setLabels(card?.labels || [])
     setDueDate(card?.dueDate || '')
     setChecklist(card?.checklist || [])
+    setAssignedMembers(card?.assignedMembers || [])
   }, [card])
 
   const handleSaveAll = async (overrideData = {}) => {
@@ -36,6 +38,7 @@ function CardDetailModal({ card, listTitle, onClose, onCardUpdate }) {
       labels,
       dueDate,
       checklist,
+      assignedMembers: assignedMembers.map(a => a._id || a),
       ...overrideData
     }
     try {
@@ -165,6 +168,49 @@ function CardDetailModal({ card, listTitle, onClose, onCardUpdate }) {
                   Clear date
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* 3. Assign Members Section */}
+          <div>
+            <h4 className="font-bold text-gray-300 uppercase tracking-wider text-[11px] mb-2">Assigned Members</h4>
+            <div className="flex flex-wrap gap-2">
+              {(boardMembers || []).map((m) => {
+                const uObj = m.userId || {}
+                const uId = uObj._id || uObj
+                const uName = uObj.username || 'User'
+                const isAssigned = assignedMembers.some(
+                  (assigned) => (assigned._id || assigned) === uId
+                )
+
+                return (
+                  <button
+                    key={uId}
+                    type="button"
+                    onClick={() => {
+                      let updated
+                      if (isAssigned) {
+                        updated = assignedMembers.filter((a) => (a._id || a) !== uId)
+                      } else {
+                        updated = [...assignedMembers, uObj]
+                      }
+                      setAssignedMembers(updated)
+                      handleSaveAll({ assignedMembers: updated.map((a) => a._id || a) })
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+                      isAssigned
+                        ? 'bg-purple-600/30 border-purple-500 text-purple-300 shadow-sm scale-105'
+                        : 'bg-[#0F0F14] border-[#2A2A38] text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
+                      {uName.slice(0, 2).toUpperCase()}
+                    </div>
+                    <span>{uName}</span>
+                    {isAssigned && <span className="text-purple-400 font-bold">✓</span>}
+                  </button>
+                )
+              })}
             </div>
           </div>
 

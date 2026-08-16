@@ -13,7 +13,7 @@ export const GRADIENT_PRESETS = [
   { name: 'Golden Hour', value: 'linear-gradient(135deg, #F12711 0%, #F5AF19 100%)' },
 ]
 
-function BoardNavbar({ board, onBoardUpdate }) {
+function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, filterText, setFilterText }) {
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -22,6 +22,7 @@ function BoardNavbar({ board, onBoardUpdate }) {
   const [titleText, setTitleText] = useState(board?.title || '')
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   // Share form states
   const [inviteUsername, setInviteUsername] = useState('')
@@ -31,6 +32,7 @@ function BoardNavbar({ board, onBoardUpdate }) {
   const [copiedLink, setCopiedLink] = useState(false)
 
   const dropdownRef = useRef(null)
+  const filterRef = useRef(null)
 
   useEffect(() => {
     setTitleText(board?.title || '')
@@ -42,6 +44,9 @@ function BoardNavbar({ board, onBoardUpdate }) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false)
         setShowColorPicker(false)
+      }
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setFilterOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -306,6 +311,98 @@ function BoardNavbar({ board, onBoardUpdate }) {
               </div>
             )
           })}
+        </div>
+
+        {/* Filter Button & Popover */}
+        <div className="relative" ref={filterRef}>
+          <button
+            onClick={() => setFilterOpen(!filterOpen)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+              filterMemberId || filterText
+                ? 'bg-purple-600 border-purple-500 text-white shadow-md'
+                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/90'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.707 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span>Filter</span>
+            {(filterMemberId || filterText) && (
+              <span className="w-2 h-2 rounded-full bg-teal-400 inline-block ml-0.5" />
+            )}
+          </button>
+
+          {/* Filter Menu Popover */}
+          {filterOpen && (
+            <div className="absolute right-0 mt-2 w-72 bg-[#1C1C24] border border-[#2A2A35] rounded-xl p-3 shadow-2xl z-50 text-xs text-gray-200">
+              <div className="flex items-center justify-between border-b border-[#2A2A35] pb-2 mb-3">
+                <span className="font-bold text-white text-xs uppercase tracking-wider">Filter Board</span>
+                {(filterMemberId || filterText) && (
+                  <button
+                    onClick={() => {
+                      if (setFilterMemberId) setFilterMemberId(null)
+                      if (setFilterText) setFilterText('')
+                    }}
+                    className="text-[11px] text-purple-400 hover:underline font-semibold"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+
+              {/* Keyword Filter */}
+              <div className="mb-3">
+                <label className="block text-[11px] font-semibold text-gray-400 mb-1">Search Keywords</label>
+                <input
+                  type="text"
+                  placeholder="Filter cards by title..."
+                  value={filterText || ''}
+                  onChange={(e) => setFilterText && setFilterText(e.target.value)}
+                  className="w-full bg-[#0F0F14] border border-[#2A2A38] focus:border-purple-500 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Member Filter */}
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-400 mb-1.5">Filter by Assignee</label>
+                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                  <button
+                    onClick={() => setFilterMemberId && setFilterMemberId(null)}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-colors ${
+                      !filterMemberId ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'hover:bg-white/10 text-gray-300'
+                    }`}
+                  >
+                    <span>All Cards</span>
+                    {!filterMemberId && <span>✓</span>}
+                  </button>
+                  {sortedMembers.map((m) => {
+                    const uObj = m.userId || {}
+                    const uId = uObj._id || uObj
+                    const uName = uObj.username || 'User'
+                    const isSelected = filterMemberId === uId
+
+                    return (
+                      <button
+                        key={uId}
+                        onClick={() => setFilterMemberId && setFilterMemberId(isSelected ? null : uId)}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-colors ${
+                          isSelected ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'hover:bg-white/10 text-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
+                            {uName.slice(0, 2).toUpperCase()}
+                          </div>
+                          <span>{uName}</span>
+                        </div>
+                        {isSelected && <span>✓</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Share Button */}

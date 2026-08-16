@@ -74,7 +74,9 @@ router.get('/:boardId', authenticate, authorizeBoard, async (req, res,next) => {
 
     const listWithCards = await Promise.all(
         lists.map(async list => {
-            const cards = await Card.find({listId: list._id}).sort({position: 1})
+            const cards = await Card.find({listId: list._id})
+                .populate('assignedMembers', 'username email')
+                .sort({position: 1})
             return {...list.toObject(), cards}
         })
     )

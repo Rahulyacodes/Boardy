@@ -1,7 +1,7 @@
-// src/components/layout/Navbar.jsx
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { searchAll } from '../../api'
 
 function Navbar({ onSearch }) {
   const { user, logoutUser } = useAuth()
@@ -11,12 +11,18 @@ function Navbar({ onSearch }) {
   const [helpOpen, setHelpOpen] = useState(false)
   const [announceOpen, setAnnounceOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+
+  // Global Search states
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState({ boards: [], cards: [] })
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const profileRef = useRef(null)
   const helpRef = useRef(null)
   const announceRef = useRef(null)
   const notifRef = useRef(null)
+  const searchRef = useRef(null)
 
   // Derive 1 or 2 letter initials from username
   const getInitials = (name) => {
@@ -30,6 +36,30 @@ function Navbar({ onSearch }) {
 
   const initials = getInitials(user?.username || 'User')
   const userEmail = user?.email || `${(user?.username || 'user').toLowerCase().replace(/\s+/g, '')}@gmail.com`
+
+  // Debounced API search effect
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults({ boards: [], cards: [] })
+      setSearchOpen(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const res = await searchAll(searchQuery.trim())
+        setSearchResults(res.data)
+        setSearchOpen(true)
+      } catch (err) {
+        console.error('Search error:', err)
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Close menus on click outside
   useEffect(() => {
@@ -46,6 +76,9 @@ function Navbar({ onSearch }) {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
         setNotifOpen(false)
       }
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -58,7 +91,8 @@ function Navbar({ onSearch }) {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
-    if (onSearch) onSearch(searchQuery)
+    if (!searchQuery.trim()) return
+    setSearchOpen(true)
   }
 
   return (
@@ -77,14 +111,15 @@ function Navbar({ onSearch }) {
         <span className="font-bold text-base tracking-tight text-white">Trello</span>
       </div>
 
-      {/* MIDDLE: Search Field & Button */}
-      <form onSubmit={handleSearchSubmit} className="flex items-center gap-1.5 max-w-xs w-full mx-4">
-        <div className="relative flex-1">
+      {/* MIDDLE: Search Field & Dropdown Overlay */}
+      <form onSubmit={handleSearchSubmit} className="flex items-center gap-1.5 max-w-sm w-full mx-4">
+        <div className="relative flex-1" ref={searchRef}>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
+            onFocus={() => searchQuery.trim() && setSearchOpen(true)}
+            placeholder="Search boards or cards..."
             className="w-full bg-[#0F0F14] border border-[#2A2A38] focus:border-purple-500 rounded-lg px-3 py-1.5 pl-8 text-xs text-white placeholder-gray-400 focus:outline-none transition-all"
           />
           <svg
@@ -95,13 +130,84 @@ function Navbar({ onSearch }) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
+
+          {/* Search Overlay Dropdown */}
+          {searchOpen && (
+            <div className="absolute top-full left-0 mt-2 w-full min-w-[320px] max-h-96 overflow-y-auto bg-[#1C1C24] border border-[#2A2A35] rounded-xl p-3 shadow-2xl z-50 text-xs text-gray-200">
+              {searchLoading ? (
+                <div className="py-4 text-center text-gray-400">Searching...</div>
+              ) : searchResults.boards.length === 0 && searchResults.cards.length === 0 ? (
+                <div className="py-4 text-center text-gray-400">No results found for "{searchQuery}"</div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Boards Section */}
+                  {searchResults.boards.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                        Boards ({searchResults.boards.length})
+                      </div>
+                      <div className="space-y-1">
+                        {searchResults.boards.map((b) => (
+                          <div
+                            key={b._id}
+                            onClick={() => {
+                              navigate(`/board/${b._id}`)
+                              setSearchOpen(false)
+                              setSearchQuery('')
+                            }}
+                            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
+                          >
+                            <div
+                              className="w-5 h-5 rounded border border-white/20"
+                              style={{ background: b.background || '#4A00E0' }}
+                            />
+                            <span className="font-semibold text-white">{b.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cards Section */}
+                  {searchResults.cards.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                        Cards ({searchResults.cards.length})
+                      </div>
+                      <div className="space-y-1">
+                        {searchResults.cards.map((c) => (
+                          <div
+                            key={c._id}
+                            onClick={() => {
+                              const bId = c.boardId?._id || c.boardId
+                              if (bId) navigate(`/board/${bId}`)
+                              setSearchOpen(false)
+                              setSearchQuery('')
+                            }}
+                            className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-purple-400">📋</span>
+                              <div>
+                                <p className="font-medium text-white">{c.title}</p>
+                                {c.description && (
+                                  <p className="text-[10px] text-gray-400 truncate max-w-[180px]">{c.description}</p>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-300">
+                              {c.boardTitle || c.boardId?.title || 'Board'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <button
-          type="submit"
-          className="px-2.5 py-1.5 bg-[#252532] hover:bg-purple-600 rounded-lg text-xs font-medium text-gray-300 hover:text-white transition-colors"
-        >
-          Search
-        </button>
       </form>
 
       {/* RIGHT: Icons & Profile Avatar */}

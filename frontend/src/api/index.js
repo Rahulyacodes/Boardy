@@ -40,6 +40,9 @@ export const inviteMember = (id, data) => api.post(`/boards/${id}/members`, data
 export const removeMember = (id, userId) => api.delete(`/boards/${id}/members/${userId}`)
 export const updateMemberRole = (id, userId, role) => api.patch(`/boards/${id}/members/${userId}`, { role })
 
+// ---- search ----
+export const searchAll = (q) => api.get('/search', { params: { q } })
+
 // ---- lists ----
 export const createList = (boardId, data) => api.post(`/boards/${boardId}/lists`, data)
 export const renameList = (listId, data)  => api.patch(`/boards/${listId}`, data)

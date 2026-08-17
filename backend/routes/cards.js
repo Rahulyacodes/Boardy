@@ -60,6 +60,25 @@ router.patch('/:cardId', authenticate, authorizeCard, async (req, res, next) => 
       { new: true }
     ).populate('assignedMembers', 'username email')
 
+    // Trigger Notification for newly assigned members
+    if (assignedMembers !== undefined && Array.isArray(assignedMembers)) {
+      const { createNotification } = require('../utils/notify')
+      const existingMemberIds = (req.card.assignedMembers || []).map(m => m.toString())
+
+      for (const memberId of assignedMembers) {
+        if (!existingMemberIds.includes(memberId.toString())) {
+          await createNotification({
+            recipientId: memberId,
+            senderId: req.user.id,
+            type: 'CARD_ASSIGNMENT',
+            title: 'Task Assigned',
+            message: `${req.user.username || 'A team member'} assigned you to card "${updated.title}"`,
+            link: `/board/${req.board._id}`
+          })
+        }
+      }
+    }
+
     res.json(updated)
 
   } catch (err) {

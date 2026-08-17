@@ -142,6 +142,7 @@ router.post('/:boardId/members', authenticate, authorizeBoard, requireOwner, asy
     try{
         const {username} = req.body
         const User = require('../models/User')  
+        const { createNotification } = require('../utils/notify')
 
         if(!username){
             const err = new Error('Username is required')
@@ -170,6 +171,16 @@ router.post('/:boardId/members', authenticate, authorizeBoard, requireOwner, asy
     await req.board.save()
     const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
 
+    // Trigger Notification
+    await createNotification({
+        recipientId: userToAdd._id,
+        senderId: req.user.id,
+        type: 'BOARD_INVITE',
+        title: 'Board Invitation',
+        message: `${req.user.username || 'A team member'} added you to board "${req.board.title}"`,
+        link: `/board/${req.board._id}`
+    })
+
     res.status(201).json({ message: `${username} added to the board`, board: updatedBoard })
 
     } catch(err){
@@ -182,11 +193,24 @@ router.post('/:boardId/members', authenticate, authorizeBoard, requireOwner, asy
 router.delete('/:boardId/members/:userId', authenticate, authorizeBoard, requireOwner, async (req, res, next) => {
     try {
         const { userId } = req.params
+        const { createNotification } = require('../utils/notify')
+
         req.board.members = req.board.members.filter(
             (member) => member.userId.toString() !== userId
         )
         await req.board.save()
         const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
+
+        // Trigger Notification
+        await createNotification({
+            recipientId: userId,
+            senderId: req.user.id,
+            type: 'MEMBER_REMOVED',
+            title: 'Removed from Board',
+            message: `You were removed from board "${req.board.title}"`,
+            link: `/`
+        })
+
         res.json({ message: 'Member removed successfully', board: updatedBoard })
     } catch (err) {
         next(err)
@@ -199,13 +223,26 @@ router.patch('/:boardId/members/:userId', authenticate, authorizeBoard, requireO
     try {
         const { userId } = req.params
         const { role } = req.body
+        const { createNotification } = require('../utils/notify')
+
         const memberIndex = req.board.members.findIndex(
-            (member) => member.userId.toString() === userId
+            (member) => member.userId.toString() !== userId
         )
         if (memberIndex !== -1) {
             req.board.members[memberIndex].role = role || 'member'
             await req.board.save()
             const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
+
+            // Trigger Notification
+            await createNotification({
+                recipientId: userId,
+                senderId: req.user.id,
+                type: 'ROLE_CHANGE',
+                title: 'Role Updated',
+                message: `Your role on board "${req.board.title}" was updated to ${role || 'member'}`,
+                link: `/board/${req.board._id}`
+            })
+
             return res.json({ message: 'Role updated successfully', board: updatedBoard })
         }
         res.status(404).json({ error: 'Member not found' })

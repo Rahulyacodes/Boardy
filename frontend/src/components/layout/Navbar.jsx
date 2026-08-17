@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { searchAll } from '../../api'
+import { searchAll, getNotifications, markNotificationRead, markAllNotificationsRead } from '../../api'
 
 function Navbar({ onSearch }) {
   const { user, logoutUser } = useAuth()
@@ -11,6 +11,50 @@ function Navbar({ onSearch }) {
   const [helpOpen, setHelpOpen] = useState(false)
   const [announceOpen, setAnnounceOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+
+  // Notifications state
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await getNotifications()
+      setNotifications(res.data.notifications || [])
+      setUnreadCount(res.data.unreadCount || 0)
+    } catch (err) {
+      console.error('Error fetching notifications:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 10000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead()
+      fetchNotifications()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleNotificationClick = async (n) => {
+    try {
+      if (!n.read) {
+        await markNotificationRead(n._id)
+        fetchNotifications()
+      }
+      if (n.link) {
+        navigate(n.link)
+      }
+      setNotifOpen(false)
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   // Global Search states
   const [searchQuery, setSearchQuery] = useState('')
@@ -236,19 +280,83 @@ function Navbar({ onSearch }) {
         {/* Notifications Icon */}
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setNotifOpen(!notifOpen)}
+            onClick={() => {
+              setNotifOpen(!notifOpen)
+              fetchNotifications()
+            }}
             className="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors relative"
             title="Notifications"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-red-500 text-white rounded-full text-[10px] font-bold shadow-md animate-pulse">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-[#1C1C24] border border-[#2A2A35] rounded-xl p-3 shadow-2xl z-50 text-xs text-gray-200">
-              <h4 className="font-bold text-sm mb-1 text-white">Notifications 🔔</h4>
-              <p className="text-gray-400">No unread notifications.</p>
+            <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-[#1C1C24] border border-[#2A2A35] rounded-xl p-3 shadow-2xl z-50 text-xs text-gray-200">
+              <div className="flex items-center justify-between border-b border-[#2A2A35] pb-2 mb-2">
+                <span className="font-bold text-white text-xs uppercase tracking-wider">
+                  Notifications {unreadCount > 0 && `(${unreadCount})`}
+                </span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-[11px] text-purple-400 hover:underline font-semibold"
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              {notifications.length === 0 ? (
+                <div className="py-6 text-center text-gray-400 text-xs">
+                  No notifications yet 🔔
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {notifications.map((n) => {
+                    const iconMap = {
+                      BOARD_INVITE: '👥',
+                      CARD_ASSIGNMENT: '📋',
+                      ROLE_CHANGE: '⚙️',
+                      MEMBER_REMOVED: '🚪',
+                      GENERAL: '🔔'
+                    }
+                    const icon = iconMap[n.type] || '🔔'
+
+                    return (
+                      <div
+                        key={n._id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={`p-2.5 rounded-lg border transition-colors cursor-pointer flex items-start gap-2.5 ${
+                          !n.read
+                            ? 'bg-purple-900/20 border-purple-500/40 hover:bg-purple-900/30'
+                            : 'bg-white/5 border-transparent hover:bg-white/10 opacity-75'
+                        }`}
+                      >
+                        <span className="text-sm mt-0.5">{icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <h5 className="font-semibold text-white truncate text-xs">{n.title}</h5>
+                            {!n.read && (
+                              <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-300 mt-0.5 leading-snug">{n.message}</p>
+                          <span className="text-[9px] text-gray-400 mt-1 block">
+                            {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

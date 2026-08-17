@@ -13,12 +13,13 @@ app.use(cors({ origin: 'http://localhost:5173' }))
 app.use(express.json())   // parses incoming request body as JSON, puts it on req.body
 app.use(express.static('public')) // serves your HTML/CSS/JS frontend
 
-app.use('/api/auth',   require('./routes/auth'))
-app.use('/api/boards', require('./routes/boards'))
-app.use('/api/boards',  require('./routes/lists'))
-app.use('/api/lists',  require('./routes/cards'))
-app.use('/api/cards',  require('./routes/cards'))
-app.use('/api/search', require('./routes/search'))
+app.use('/api/auth',          require('./routes/auth'))
+app.use('/api/boards',        require('./routes/boards'))
+app.use('/api/boards',        require('./routes/lists'))
+app.use('/api/lists',         require('./routes/cards'))
+app.use('/api/cards',         require('./routes/cards'))
+app.use('/api/search',        require('./routes/search'))
+app.use('/api/notifications', require('./routes/notifications'))
 
 console.log('routes are being registered')
 

@@ -43,6 +43,12 @@ export const updateMemberRole = (id, userId, role) => api.patch(`/boards/${id}/m
 // ---- search ----
 export const searchAll = (q) => api.get('/search', { params: { q } })
 
+// ---- notifications ----
+export const getNotifications = () => api.get('/notifications')
+export const markNotificationRead = (id) => api.patch(`/notifications/${id}/read`)
+export const markAllNotificationsRead = () => api.patch('/notifications/read-all')
+export const deleteNotification = (id) => api.delete(`/notifications/${id}`)
+
 // ---- lists ----
 export const createList = (boardId, data) => api.post(`/boards/${boardId}/lists`, data)
 export const renameList = (listId, data)  => api.patch(`/boards/${listId}`, data)

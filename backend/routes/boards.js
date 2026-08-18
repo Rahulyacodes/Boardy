@@ -221,31 +221,33 @@ router.delete('/:boardId/members/:userId', authenticate, authorizeBoard, require
 // PATCH /api/boards/:boardId/members/:userId
 router.patch('/:boardId/members/:userId', authenticate, authorizeBoard, requireOwner, async (req, res, next) => {
     try {
-        const { userId } = req.params
+        const { boardId, userId } = req.params
         const { role } = req.body
         const { createNotification } = require('../utils/notify')
 
-        const memberIndex = req.board.members.findIndex(
-            (member) => member.userId.toString() !== userId
-        )
-        if (memberIndex !== -1) {
-            req.board.members[memberIndex].role = role || 'member'
-            await req.board.save()
-            const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
+        const updatedBoard = await Board.findOneAndUpdate(
+            { _id: boardId, 'members.userId': userId },
+            { $set: { 'members.$.role': role || 'member' } },
+            { new: true }
+        ).populate('members.userId', 'username email')
 
-            // Trigger Notification
-            await createNotification({
-                recipientId: userId,
-                senderId: req.user.id,
-                type: 'ROLE_CHANGE',
-                title: 'Role Updated',
-                message: `Your role on board "${req.board.title}" was updated to ${role || 'member'}`,
-                link: `/board/${req.board._id}`
-            })
-
-            return res.json({ message: 'Role updated successfully', board: updatedBoard })
+        if (!updatedBoard) {
+            const err = new Error('Member not found on this board')
+            err.status = 404
+            return next(err)
         }
-        res.status(404).json({ error: 'Member not found' })
+
+        // Trigger Notification
+        await createNotification({
+            recipientId: userId,
+            senderId: req.user.id,
+            type: 'ROLE_CHANGE',
+            title: 'Role Updated',
+            message: `Your role on board "${updatedBoard.title}" was updated to ${role || 'member'}`,
+            link: `/board/${updatedBoard._id}`
+        })
+
+        return res.json({ message: 'Role updated successfully', board: updatedBoard })
     } catch (err) {
         next(err)
     }

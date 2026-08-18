@@ -3,6 +3,7 @@ const List           = require('../models/List')
 const Card           = require('../models/Card')
 const authenticate   = require('../middleware/authenticate')
 const { authorizeBoard, authorizeList } = require('../middleware/authorize')
+const authorizeBoardRole = require('../middleware/checkBoardRole')
 
 
 const router = express.Router()
@@ -10,7 +11,7 @@ const router = express.Router()
 // ------------ route 1 : create lists----------------------------
 // POST /api/boards/:boardId/lists
 
-router.post('/:boardId/lists', authenticate, authorizeBoard, async (req, res, next) => {
+router.post('/:boardId/lists', authenticate, authorizeBoard, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
     try{
  
         const {title} = req.body
@@ -46,7 +47,7 @@ router.post('/:boardId/lists', authenticate, authorizeBoard, async (req, res, ne
 // ---------------- rename list route -------------------------
 // PATCH /api/lists/:listId
 
-router.patch('/:listId', authenticate, authorizeList, async (req, res, next) => {
+router.patch('/:listId', authenticate, authorizeList, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
     try{
 
         const {title} = req.body
@@ -74,7 +75,7 @@ router.patch('/:listId', authenticate, authorizeList, async (req, res, next) => 
 // -------------------------- Delete a list ----------------------------
 // DELETE /api/lists/:listId
 
-router.delete('/:listId', authenticate, authorizeList, async (req, res, next) => {
+router.delete('/:listId', authenticate, authorizeList, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
     try{
 
         const listId = req.list._id

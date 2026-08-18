@@ -5,6 +5,7 @@ const Card = require('../models/Card')
 const List = require('../models/List')
 const Board = require('../models/Board')
 const authenticate = require('../middleware/authenticate')
+const authorizeBoardRole = require('../middleware/checkBoardRole')
 const { createNotification } = require('../utils/notify')
 
 // GET /api/cards/:cardId/comments - Get all comments for a card
@@ -23,7 +24,7 @@ router.get('/:cardId/comments', authenticate, async (req, res, next) => {
 })
 
 // POST /api/cards/:cardId/comments - Add a new comment to a card
-router.post('/:cardId/comments', authenticate, async (req, res, next) => {
+router.post('/:cardId/comments', authenticate, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
   try {
     const { cardId } = req.params
     const { text } = req.body
@@ -89,7 +90,7 @@ router.post('/:cardId/comments', authenticate, async (req, res, next) => {
 })
 
 // DELETE /api/comments/:commentId - Delete a comment
-router.delete('/comments/:commentId', authenticate, async (req, res, next) => {
+router.delete('/comments/:commentId', authenticate, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
   try {
     const { commentId } = req.params
 

@@ -4,12 +4,13 @@ const Card         = require('../models/Card')
 const List         = require('../models/List')
 const authenticate = require('../middleware/authenticate')
 const { authorizeList, authorizeCard } = require('../middleware/authorize')
+const authorizeBoardRole = require('../middleware/checkBoardRole')
 
 const router = express.Router()
 
 // ---------------------------------------- create card ----------------------------------------
 // POST /api/lists/:listId/cards
-router.post('/:listId/cards', authenticate, authorizeList, async (req, res, next) => {
+router.post('/:listId/cards', authenticate, authorizeList, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
   try {
     const { title, description } = req.body
     const listId = req.params.listId
@@ -42,7 +43,7 @@ router.post('/:listId/cards', authenticate, authorizeList, async (req, res, next
 
 // ---------------------------------------- edit card ----------------------------------------
 // PATCH /api/cards/:cardId
-router.patch('/:cardId', authenticate, authorizeCard, async (req, res, next) => {
+router.patch('/:cardId', authenticate, authorizeCard, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
   try {
     const { title, description, labels, dueDate, checklist, assignedMembers } = req.body
 
@@ -88,7 +89,7 @@ router.patch('/:cardId', authenticate, authorizeCard, async (req, res, next) => 
 
 // ---------------------------------------- move card ----------------------------------------
 // PATCH /api/cards/:cardId/move
-router.patch('/:cardId/move', authenticate, authorizeCard, async (req, res, next) => {
+router.patch('/:cardId/move', authenticate, authorizeCard, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
   try {
     const { newListId } = req.body
 
@@ -135,7 +136,7 @@ router.patch('/:cardId/move', authenticate, authorizeCard, async (req, res, next
 
 // ---------------------------------------- delete card ----------------------------------------
 // DELETE /api/cards/:cardId
-router.delete('/:cardId', authenticate, authorizeCard, async (req, res, next) => {
+router.delete('/:cardId', authenticate, authorizeCard, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
   try {
     await Card.findByIdAndDelete(req.card._id)
     res.json({ message: 'Card deleted' })
@@ -144,5 +145,4 @@ router.delete('/:cardId', authenticate, authorizeCard, async (req, res, next) =>
   }
 })
 
-module.Searchexports = router
 module.exports = router

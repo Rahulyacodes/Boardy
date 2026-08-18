@@ -20,7 +20,7 @@ const boardSchema = new mongoose.Schema({
       },
       role: {
         type: String,
-        enum: ['owner', 'member'],  
+        enum: ['owner', 'member', 'viewer'],  
         default: 'member'
       }
     }

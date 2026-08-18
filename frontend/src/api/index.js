@@ -59,3 +59,8 @@ export const createCard = (listId, data)  => api.post(`/lists/${listId}/cards`, 
 export const updateCard = (cardId, data)  => api.patch(`/cards/${cardId}`, data)
 export const moveCard   = (cardId, data)  => api.patch(`/cards/${cardId}/move`, data)
 export const deleteCard = (cardId)        => api.delete(`/cards/${cardId}`)
+
+// ---- comments ----
+export const getCardComments = (cardId) => api.get(`/cards/${cardId}/comments`)
+export const addCardComment = (cardId, text) => api.post(`/cards/${cardId}/comments`, { text })
+export const deleteCardComment = (commentId) => api.delete(`/comments/${commentId}`)

@@ -1,6 +1,7 @@
 // src/components/board/CardDetailModal.jsx
 import { useState, useEffect } from 'react'
-import { updateCard } from '../../api'
+import { updateCard, getCardComments, addCardComment, deleteCardComment } from '../../api'
+import { useAuth } from '../../context/AuthContext'
 
 export const LABEL_COLORS = [
   { color: '#EF4444', name: 'Urgent (Red)' },
@@ -12,6 +13,8 @@ export const LABEL_COLORS = [
 ]
 
 function CardDetailModal({ card, listTitle, boardMembers = [], onClose, onCardUpdate }) {
+  const { user: currentUser } = useAuth()
+
   const [title, setTitle] = useState(card?.title || '')
   const [description, setDescription] = useState(card?.description || '')
   const [labels, setLabels] = useState(card?.labels || [])
@@ -20,6 +23,49 @@ function CardDetailModal({ card, listTitle, boardMembers = [], onClose, onCardUp
   const [assignedMembers, setAssignedMembers] = useState(card?.assignedMembers || [])
   const [newCheckitemTitle, setNewCheckitemTitle] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Comments state
+  const [comments, setComments] = useState([])
+  const [newCommentText, setNewCommentText] = useState('')
+  const [commentLoading, setCommentLoading] = useState(false)
+
+  const fetchComments = async () => {
+    if (!card?._id) return
+    try {
+      const res = await getCardComments(card._id)
+      setComments(res.data || [])
+    } catch (err) {
+      console.error('Error fetching comments:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchComments()
+  }, [card?._id])
+
+  const handleAddComment = async (e) => {
+    e.preventDefault()
+    if (!newCommentText.trim()) return
+    setCommentLoading(true)
+    try {
+      const res = await addCardComment(card._id, newCommentText.trim())
+      setComments((prev) => [...prev, res.data])
+      setNewCommentText('')
+    } catch (err) {
+      console.error('Error posting comment:', err)
+    } finally {
+      setCommentLoading(false)
+    }
+  }
+
+  const handleDeleteComment = async (commentId) => {
+    try {
+      await deleteCardComment(commentId)
+      setComments((prev) => prev.filter((c) => c._id !== commentId))
+    } catch (err) {
+      console.error('Error deleting comment:', err)
+    }
+  }
 
   useEffect(() => {
     setTitle(card?.title || '')
@@ -292,6 +338,73 @@ function CardDetailModal({ card, listTitle, boardMembers = [], onClose, onCardUp
                 + Add
               </button>
             </form>
+          </div>
+
+          {/* Activity & Comments Section */}
+          <div className="bg-[#14141A] border border-[#2A2A38] rounded-2xl p-4 shadow-inner">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">💬</span>
+              <h3 className="font-bold text-sm text-gray-200">Activity & Comments</h3>
+            </div>
+
+            {/* Post New Comment */}
+            <form onSubmit={handleAddComment} className="mb-4">
+              <textarea
+                placeholder="Write a comment..."
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                className="w-full bg-[#0F0F14] border border-[#2A2A38] rounded-xl p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none mb-2"
+                rows={2}
+              />
+              <button
+                type="submit"
+                disabled={commentLoading || !newCommentText.trim()}
+                className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 font-semibold rounded-xl text-xs text-white transition-colors"
+              >
+                {commentLoading ? 'Posting...' : 'Save Comment'}
+              </button>
+            </form>
+
+            {/* Comments Feed */}
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              {comments.length === 0 ? (
+                <p className="text-xs text-gray-500 italic">No comments yet. Start the discussion!</p>
+              ) : (
+                comments.map((c) => {
+                  const authorName = c.authorId?.username || 'User'
+                  const initials = authorName.slice(0, 2).toUpperCase()
+                  const isAuthor = c.authorId?._id === currentUser?.id || c.authorId === currentUser?.id
+
+                  return (
+                    <div key={c._id} className="flex items-start gap-2.5 bg-[#0F0F14] border border-[#2A2A38] rounded-xl p-3">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-[10px] text-white shrink-0 shadow-sm">
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="font-bold text-xs text-purple-300">{authorName}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-500">
+                              {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {isAuthor && (
+                              <button
+                                onClick={() => handleDeleteComment(c._id)}
+                                className="text-gray-500 hover:text-red-400 text-xs"
+                                title="Delete comment"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-200 leading-relaxed whitespace-pre-wrap">{c.text}</p>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         </div>
 

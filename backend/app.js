@@ -18,6 +18,8 @@ app.use('/api/boards',        require('./routes/boards'))
 app.use('/api/boards',        require('./routes/lists'))
 app.use('/api/lists',         require('./routes/cards'))
 app.use('/api/cards',         require('./routes/cards'))
+app.use('/api/cards',         require('./routes/comments'))
+app.use('/api',               require('./routes/comments'))
 app.use('/api/search',        require('./routes/search'))
 app.use('/api/notifications', require('./routes/notifications'))
 

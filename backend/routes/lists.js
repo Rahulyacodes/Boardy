@@ -44,30 +44,42 @@ router.post('/:boardId/lists', authenticate, authorizeBoard, authorizeBoardRole(
      }
 })
 
-// ---------------- rename list route -------------------------
+// ---------------- update list route (rename & reorder position) -------------------------
 // PATCH /api/lists/:listId
 
 router.patch('/:listId', authenticate, authorizeList, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
-    try{
+    try {
+        const { title, position } = req.body
+        const updates = {}
 
-        const {title} = req.body
-
-        if(!title){
-            const err = new Error('Title is required')
-            err.status = 400
-            return next(err)
+        if (title !== undefined && title.trim() !== '') {
+            updates.title = title.trim()
         }
 
-    // req.list is already attached by authorizedList middleware
-    const list = await List.findByIdAndUpdate(
-        req.list._id,
-        { title },
-        { new: true }
-    )
+        if (position !== undefined && !isNaN(Number(position))) {
+            updates.position = Math.max(1, Number(position))
+        }
 
-    res.json(list)
+        const updatedList = await List.findByIdAndUpdate(
+            req.list._id,
+            updates,
+            { new: true }
+        )
 
-    } catch(err){
+        // Re-normalize list positions in the board sequentially if position was changed
+        if (position !== undefined) {
+            const allLists = await List.find({ boardId: req.list.boardId }).sort({ position: 1, updatedAt: -1 })
+            for (let i = 0; i < allLists.length; i++) {
+                if (allLists[i].position !== i + 1) {
+                    allLists[i].position = i + 1
+                    await allLists[i].save()
+                }
+            }
+        }
+
+        res.json(updatedList)
+
+    } catch (err) {
         next(err)
     }   
 })

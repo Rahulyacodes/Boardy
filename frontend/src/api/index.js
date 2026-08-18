@@ -51,8 +51,9 @@ export const deleteNotification = (id) => api.delete(`/notifications/${id}`)
 
 // ---- lists ----
 export const createList = (boardId, data) => api.post(`/boards/${boardId}/lists`, data)
-export const renameList = (listId, data)  => api.patch(`/boards/${listId}`, data)
-export const deleteList = (listId)        => api.delete(`/boards/${listId}`)
+export const updateList = (listId, data)  => api.patch(`/lists/${listId}`, data)
+export const renameList = (listId, data)  => api.patch(`/lists/${listId}`, data)
+export const deleteList = (listId)        => api.delete(`/lists/${listId}`)
 
 // ---- cards ----
 export const createCard = (listId, data)  => api.post(`/lists/${listId}/cards`, data)

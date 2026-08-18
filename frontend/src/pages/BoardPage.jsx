@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   getBoard,
   createList,
+  updateList,
   deleteList,
   renameList,
   createCard,
@@ -41,6 +42,9 @@ function BoardPage() {
   const [editingListId, setEditingListId] = useState(null)
   const [editingListTitle, setEditingListTitle] = useState('')
 
+  // Edit list modal (title & position serial number)
+  const [listToEdit, setListToEdit] = useState(null)
+
   // Editing card modal/inline state
   const [editingCard, setEditingCard] = useState(null)
   const [editCardTitle, setEditCardTitle] = useState('')
@@ -51,6 +55,7 @@ function BoardPage() {
 
   // Drag and Drop state
   const [draggedCard, setDraggedCard] = useState(null)
+  const [draggedListId, setDraggedListId] = useState(null)
   const [dragOverListId, setDragOverListId] = useState(null)
 
   // Viewer role check
@@ -125,6 +130,21 @@ function BoardPage() {
     }
   }
 
+  const handleSaveEditList = async (e) => {
+    e?.preventDefault()
+    if (!listToEdit || !listToEdit.title.trim()) return
+    try {
+      await updateList(listToEdit._id, {
+        title: listToEdit.title.trim(),
+        position: Number(listToEdit.position)
+      })
+      setListToEdit(null)
+      fetchBoardData()
+    } catch (err) {
+      console.error('Failed to edit list:', err)
+    }
+  }
+
   // Card Handlers
   const handleCreateCard = async (listId, e) => {
     e.preventDefault()
@@ -160,10 +180,17 @@ function BoardPage() {
     }
   }
 
-  // Drag and Drop Event Handlers
+  // Card & List Drag and Drop Event Handlers
+  const handleListDragStart = (e, listId) => {
+    e.stopPropagation()
+    setDraggedListId(listId)
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'list', listId }))
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
   const handleDragStart = (e, card, sourceListId) => {
     setDraggedCard({ cardId: card._id, sourceListId })
-    e.dataTransfer.setData('text/plain', JSON.stringify({ cardId: card._id, sourceListId }))
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'card', cardId: card._id, sourceListId }))
     e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -185,17 +212,35 @@ function BoardPage() {
     e.preventDefault()
     setDragOverListId(null)
 
-    let cardId = draggedCard?.cardId
-    let sourceListId = draggedCard?.sourceListId
-
     const dataRaw = e.dataTransfer.getData('text/plain')
+    let parsedData = {}
     if (dataRaw) {
       try {
-        const parsed = JSON.parse(dataRaw)
-        if (parsed.cardId) cardId = parsed.cardId
-        if (parsed.sourceListId) sourceListId = parsed.sourceListId
+        parsedData = JSON.parse(dataRaw)
       } catch (err) {}
     }
+
+    // Handle List Reordering Drop
+    if (parsedData.type === 'list' || draggedListId) {
+      const activeListId = parsedData.listId || draggedListId
+      if (!activeListId || activeListId === targetListId) {
+        setDraggedListId(null)
+        return
+      }
+      const lists = board?.lists || []
+      const targetIndex = lists.findIndex((l) => l._id === targetListId)
+      if (targetIndex !== -1) {
+        updateList(activeListId, { position: targetIndex + 1 })
+          .then(() => fetchBoardData())
+          .catch((err) => console.error('Failed to reorder list:', err))
+      }
+      setDraggedListId(null)
+      return
+    }
+
+    // Handle Card Move Drop
+    let cardId = draggedCard?.cardId || parsedData.cardId
+    let sourceListId = draggedCard?.sourceListId || parsedData.sourceListId
 
     if (!cardId || sourceListId === targetListId) {
       setDraggedCard(null)
@@ -294,7 +339,7 @@ function BoardPage() {
         <div className="flex-1 overflow-x-auto p-6 relative z-10">
           <div className="flex items-start gap-4 h-full min-h-[calc(100vh-180px)] pb-12">
             {/* Render lists */}
-            {board?.lists?.map((list) => {
+            {board?.lists?.map((list, index) => {
               const rawCards = list.cards || []
               const filteredCards = rawCards.filter((card) => {
                 if (filterMemberId) {
@@ -318,6 +363,8 @@ function BoardPage() {
               return (
                 <div
                   key={list._id}
+                  draggable={!isViewer}
+                  onDragStart={(e) => !isViewer && handleListDragStart(e, list._id)}
                   onDragOver={(e) => !isViewer && handleDragOver(e, list._id)}
                   onDragLeave={(e) => !isViewer && handleDragLeave(e, list._id)}
                   onDrop={(e) => !isViewer && handleDrop(e, list._id)}
@@ -343,7 +390,11 @@ function BoardPage() {
                         className="bg-black/50 border border-purple-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-semibold w-full"
                       />
                     ) : (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {/* Serial Number Badge */}
+                        <span className="text-[10px] font-bold text-purple-300 bg-purple-600/30 border border-purple-500/30 px-1.5 py-0.5 rounded shadow-sm">
+                          #{index + 1}
+                        </span>
                         <h3
                           onClick={() => {
                             if (!isViewer) {
@@ -351,7 +402,7 @@ function BoardPage() {
                               setEditingListTitle(list.title)
                             }
                           }}
-                          className={`font-bold text-sm text-gray-100 ${
+                          className={`font-bold text-sm text-gray-100 truncate ${
                             !isViewer ? 'cursor-pointer hover:text-purple-300' : ''
                           } transition-colors`}
                           title={!isViewer ? 'Click to rename' : ''}
@@ -359,7 +410,7 @@ function BoardPage() {
                           {list.title}
                         </h3>
                         {/* Card Count Badge */}
-                        <span className="text-xs text-gray-400 font-semibold px-1.5 py-0.5 rounded bg-white/10">
+                        <span className="text-xs text-gray-400 font-semibold px-1.5 py-0.5 rounded bg-white/10 shrink-0">
                           {cardCount}
                         </span>
                       </div>
@@ -367,7 +418,16 @@ function BoardPage() {
 
                     {/* Quick List Action Icons */}
                     {!isViewer && (
-                      <div className="flex items-center gap-1 text-gray-400 text-xs">
+                      <div className="flex items-center gap-1 text-gray-400 text-xs shrink-0">
+                        <button
+                          onClick={() => setListToEdit({ _id: list._id, title: list.title, position: index + 1 })}
+                          className="p-1 hover:text-purple-300 hover:bg-white/10 rounded transition-colors"
+                          title="Edit list title & serial number"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
                         <button
                           onClick={() => handleDeleteList(list._id, list.title)}
                           className="p-1 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
@@ -605,6 +665,72 @@ function BoardPage() {
             setEditingCard((prev) => (prev ? { ...prev, ...updatedCard } : null))
           }}
         />
+      )}
+      {/* Edit List Modal (Name & Serial Number Order) */}
+      {listToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn select-none">
+          <div className="bg-[#1C1C24] border border-[#2A2A35] rounded-2xl w-full max-w-md p-6 shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-[#2A2A35] mb-4">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <span>✏️</span> Edit List Settings
+              </h3>
+              <button
+                onClick={() => setListToEdit(null)}
+                className="text-gray-400 hover:text-white text-sm p-1 rounded-lg hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditList} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-gray-300 font-semibold mb-1.5">List Name</label>
+                <input
+                  type="text"
+                  value={listToEdit.title}
+                  onChange={(e) => setListToEdit({ ...listToEdit, title: e.target.value })}
+                  className="w-full bg-[#0F0F14] border border-[#2A2A38] focus:border-purple-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                  placeholder="Enter list title..."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 font-semibold mb-1.5">
+                  Serial Number (Position Order)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={board?.lists?.length || 10}
+                  value={listToEdit.position}
+                  onChange={(e) => setListToEdit({ ...listToEdit, position: e.target.value })}
+                  className="w-full bg-[#0F0F14] border border-[#2A2A38] focus:border-purple-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                  required
+                />
+                <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">
+                  Enter position number (1, 2, 3...) to reorder this list on the board. Lists are numbered sequentially by default.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#2A2A35]">
+                <button
+                  type="button"
+                  onClick={() => setListToEdit(null)}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg shadow-purple-600/30 transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Bottom Floating Navigation Dock */}

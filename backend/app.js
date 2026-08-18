@@ -16,6 +16,7 @@ app.use(express.static('public')) // serves your HTML/CSS/JS frontend
 app.use('/api/auth',          require('./routes/auth'))
 app.use('/api/boards',        require('./routes/boards'))
 app.use('/api/boards',        require('./routes/lists'))
+app.use('/api/lists',         require('./routes/lists'))
 app.use('/api/lists',         require('./routes/cards'))
 app.use('/api/cards',         require('./routes/cards'))
 app.use('/api/cards',         require('./routes/comments'))

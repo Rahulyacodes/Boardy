@@ -4,12 +4,12 @@ import { updateCard, getCardComments, addCardComment, deleteCardComment } from '
 import { useAuth } from '../../context/AuthContext'
 
 export const LABEL_COLORS = [
-  { color: '#EF4444', name: 'Urgent (Red)' },
-  { color: '#F97316', name: 'High Priority (Orange)' },
-  { color: '#F59E0B', name: 'Medium (Yellow)' },
-  { color: '#10B981', name: 'Feature (Green)' },
-  { color: '#3B82F6', name: 'In Progress (Blue)' },
-  { color: '#8B5CF6', name: 'Tech Debt (Purple)' },
+  { color: '#EF4444', name: 'Urgent' },
+  { color: '#F97316', name: 'High Priority' },
+  { color: '#F59E0B', name: 'Medium' },
+  { color: '#10B981', name: 'Feature' },
+  { color: '#3B82F6', name: 'In Progress' },
+  { color: '#8B5CF6', name: 'Tech Debt' },
 ]
 
 function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false, onClose, onCardUpdate }) {

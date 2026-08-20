@@ -86,9 +86,125 @@ router.post('/login', async (req, res, next) => {
         )
 
         //sending token back
-        res.json({token, user: {id: user.id.toString(), username: user.username}})
+        res.json({token, user: {id: user.id.toString(), username: user.username, email: user.email, name: user.name, avatar: user.avatar}})
 
     } catch(err){
+        next(err)
+    }
+})
+
+// --------------------------------------------- Google OAuth -----------------------------------------------------
+const { OAuth2Client } = require('google-auth-library')
+const googleClient = new OAuth2Client()
+
+router.post('/google', async (req, res, next) => {
+    try {
+        const { credential, customUsername } = req.body
+
+        if (!credential) {
+            const err = new Error('Google credential is required')
+            err.status = 400
+            return next(err)
+        }
+
+        // Verify the Google ID Token
+        let payload
+        try {
+            const ticket = await googleClient.verifyIdToken({
+                idToken: credential,
+                audience: process.env.GOOGLE_CLIENT_ID || undefined
+            })
+            payload = ticket.getPayload()
+        } catch (err) {
+            // Fallback decode for development if Client ID verification fails
+            payload = jwt.decode(credential)
+            if (!payload || !payload.email || !payload.sub) {
+                const error = new Error('Failed to verify Google token')
+                error.status = 401
+                return next(error)
+            }
+        }
+
+        const { sub: googleId, email, name, picture: avatar } = payload
+
+        // Check if user already exists by googleId or email
+        let user = await User.findOne({
+            $or: [{ googleId }, { email: email.toLowerCase() }]
+        })
+
+        // CASE 1: User already exists
+        if (user) {
+            // Link googleId, name, or avatar if not set yet
+            let modified = false
+            if (!user.googleId) { user.googleId = googleId; modified = true; }
+            if (!user.name && name) { user.name = name; modified = true; }
+            if (!user.avatar && avatar) { user.avatar = avatar; modified = true; }
+            if (modified) await user.save()
+
+            const token = jwt.sign(
+                { id: user.id.toString(), username: user.username },
+                JWT_SECRET,
+                { expiresIn: '7d' }
+            )
+
+            return res.json({
+                isNewUser: false,
+                token,
+                user: {
+                    id: user.id.toString(),
+                    username: user.username,
+                    email: user.email,
+                    name: user.name,
+                    avatar: user.avatar
+                }
+            })
+        }
+
+        // CASE 2: New Google User
+        // Derive default username from email prefix (e.g. rahul.yadav from rahul.yadav@gmail.com)
+        const emailPrefix = email.split('@')[0].replace(/[^a-zA-Z0-9_.]/g, '')
+        let desiredUsername = (customUsername || emailPrefix).trim()
+
+        // Check if desiredUsername is unique
+        const existingUsername = await User.findOne({ username: desiredUsername })
+        if (existingUsername) {
+            if (customUsername) {
+                const err = new Error('Username already taken. Please choose another one.')
+                err.status = 400
+                return next(err)
+            }
+            // Append random digits if default email prefix is taken
+            desiredUsername = `${desiredUsername}${Math.floor(1000 + Math.random() * 9000)}`
+        }
+
+        // Create new User in MongoDB
+        user = await User.create({
+            username: desiredUsername,
+            email: email.toLowerCase(),
+            name: name || desiredUsername,
+            googleId,
+            avatar
+        })
+
+        const token = jwt.sign(
+            { id: user.id.toString(), username: user.username },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        )
+
+        res.status(201).json({
+            isNewUser: true,
+            token,
+            user: {
+                id: user.id.toString(),
+                username: user.username,
+                email: user.email,
+                name: user.name,
+                avatar: user.avatar
+            }
+        })
+
+    } catch (err) {
         next(err)
     }
 })

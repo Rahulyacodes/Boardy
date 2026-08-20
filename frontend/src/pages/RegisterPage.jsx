@@ -1,13 +1,21 @@
 // src/pages/RegisterPage.jsx
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { register, login } from '../api'
+import { GoogleLogin } from '@react-oauth/google'
+import { register, login, googleLogin } from '../api'
 import { useAuth } from '../context/AuthContext'
 
 function RegisterPage() {
   const [form, setForm]       = useState({ username: '', email: '', password: '' })
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Google OAuth states
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState(null)
+  const [newGoogleUser, setNewGoogleUser]                     = useState(null)
+  const [customUsername, setCustomUsername]                   = useState('')
+  const [usernameError, setUsernameError]                     = useState('')
+  const [usernameLoading, setUsernameLoading]                 = useState(false)
 
   const { loginUser } = useAuth()
   const navigate      = useNavigate()
@@ -35,6 +43,52 @@ function RegisterPage() {
       setError(err.response?.data?.error || 'Failed to create account. Try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Handle Google Auth Response
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('')
+    setLoading(true)
+
+    try {
+      const res = await googleLogin({ credential: credentialResponse.credential })
+      
+      // If user is new, open username customization modal
+      if (res.data.isNewUser) {
+        setPendingGoogleCredential(credentialResponse.credential)
+        setNewGoogleUser(res.data.user)
+        setCustomUsername(res.data.user.username)
+        loginUser(res.data.user, res.data.token)
+      } else {
+        loginUser(res.data.user, res.data.token)
+        navigate('/')
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Google Sign-Up failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConfirmCustomUsername = async (e) => {
+    e.preventDefault()
+    if (!customUsername.trim()) return
+    setUsernameError('')
+    setUsernameLoading(true)
+
+    try {
+      const res = await googleLogin({
+        credential: pendingGoogleCredential,
+        customUsername: customUsername.trim()
+      })
+      loginUser(res.data.user, res.data.token)
+      setNewGoogleUser(null)
+      navigate('/')
+    } catch (err) {
+      setUsernameError(err.response?.data?.error || 'Failed to update username')
+    } finally {
+      setUsernameLoading(false)
     }
   }
 
@@ -150,19 +204,17 @@ function RegisterPage() {
           <div className="flex-1 h-px bg-bg-border" />
         </div>
 
-        {/* Google Option */}
-        <button
-          className="w-full py-3 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-3 bg-bg-primary border border-bg-border text-text-muted opacity-60 cursor-not-allowed"
-          disabled
-        >
-          <svg width="18" height="18" viewBox="0 0 48 48">
-            <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-4z"/>
-            <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"/>
-            <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.6 5C9.8 39.7 16.4 44 24 44z"/>
-            <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.5-2.6 4.6-4.8 6l6.2 5.2C40.5 35.5 44 30.1 44 24c0-1.3-.1-2.7-.4-4z"/>
-          </svg>
-          Continue with Google
-        </button>
+        {/* Official Google OAuth Component */}
+        <div className="w-full flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Sign-Up failed or was closed')}
+            useOneTap
+            theme="filled_black"
+            shape="pill"
+            text="signup_with"
+          />
+        </div>
 
         {/* Footer */}
         <p className="text-center text-sm text-text-muted mt-1">
@@ -173,6 +225,70 @@ function RegisterPage() {
         </p>
 
       </div>
+
+      {/* Customize Username Modal for New Google Users */}
+      {newGoogleUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#1C1C24] border border-[#2A2A35] rounded-2xl w-full max-w-sm p-6 shadow-2xl text-white flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              {newGoogleUser.avatar ? (
+                <img src={newGoogleUser.avatar} alt="Avatar" className="w-12 h-12 rounded-full border border-purple-500/50" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-purple-600/30 border border-purple-500 flex items-center justify-center text-lg font-bold text-purple-300">
+                  {newGoogleUser.name?.[0] || 'U'}
+                </div>
+              )}
+              <div>
+                <h3 className="font-bold text-base text-white">Welcome, {newGoogleUser.name || 'Friend'}! 👋</h3>
+                <p className="text-xs text-gray-400">Choose your handle to finish setting up your workspace.</p>
+              </div>
+            </div>
+
+            {usernameError && (
+              <div className="p-2.5 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400 font-medium">
+                {usernameError}
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmCustomUsername} className="flex flex-col gap-4">
+              <div>
+                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">
+                  Username Handle
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-purple-400 font-bold text-sm">@</span>
+                  <input
+                    type="text"
+                    value={customUsername}
+                    onChange={(e) => setCustomUsername(e.target.value)}
+                    className="w-full bg-[#0F0F14] border border-[#2A2A38] focus:border-purple-500 rounded-xl pl-8 pr-3 py-2.5 text-sm text-white outline-none"
+                    placeholder="username"
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">This is how teammates will mention you on boards.</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/')}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium text-xs transition-all"
+                >
+                  Keep @{newGoogleUser.username}
+                </button>
+                <button
+                  type="submit"
+                  disabled={usernameLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 font-semibold text-xs text-white transition-all shadow-lg shadow-purple-600/30"
+                >
+                  {usernameLoading ? 'Saving...' : 'Save & Continue'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

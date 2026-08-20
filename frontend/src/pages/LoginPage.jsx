@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { login } from '../api'
+import { GoogleLogin } from '@react-oauth/google'
+import { login, googleLogin } from '../api'
 import { useAuth } from '../context/AuthContext'
 
 function LoginPage() {
@@ -8,6 +9,13 @@ function LoginPage() {
   const [password, setPassword]     = useState('')
   const [error, setError]           = useState('')
   const [loading, setLoading]       = useState(false)
+
+  // Google OAuth states
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState(null)
+  const [newGoogleUser, setNewGoogleUser]                     = useState(null)
+  const [customUsername, setCustomUsername]                   = useState('')
+  const [usernameError, setUsernameError]                     = useState('')
+  const [usernameLoading, setUsernameLoading]                 = useState(false)
 
   const { loginUser } = useAuth()
   const navigate      = useNavigate()
@@ -25,6 +33,53 @@ function LoginPage() {
       setError(err.response?.data?.error || 'Invalid credentials or server error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Handle Google Auth Response
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('')
+    setLoading(true)
+
+    try {
+      const res = await googleLogin({ credential: credentialResponse.credential })
+      
+      // If user is new, open username customization modal
+      if (res.data.isNewUser) {
+        setPendingGoogleCredential(credentialResponse.credential)
+        setNewGoogleUser(res.data.user)
+        setCustomUsername(res.data.user.username)
+        // Store temp auth so they can skip if they want
+        loginUser(res.data.user, res.data.token)
+      } else {
+        loginUser(res.data.user, res.data.token)
+        navigate('/')
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Google Authentication failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConfirmCustomUsername = async (e) => {
+    e.preventDefault()
+    if (!customUsername.trim()) return
+    setUsernameError('')
+    setUsernameLoading(true)
+
+    try {
+      const res = await googleLogin({
+        credential: pendingGoogleCredential,
+        customUsername: customUsername.trim()
+      })
+      loginUser(res.data.user, res.data.token)
+      setNewGoogleUser(null)
+      navigate('/')
+    } catch (err) {
+      setUsernameError(err.response?.data?.error || 'Failed to update username')
+    } finally {
+      setUsernameLoading(false)
     }
   }
 
@@ -120,19 +175,17 @@ function LoginPage() {
           <div className="flex-1 h-px bg-bg-border" />
         </div>
 
-        {/* Google option */}
-        <button
-          className="w-full py-3 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-3 bg-bg-primary border border-bg-border text-text-muted opacity-60 cursor-not-allowed"
-          disabled
-        >
-          <svg width="18" height="18" viewBox="0 0 48 48">
-            <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-4z"/>
-            <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"/>
-            <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.6 5C9.8 39.7 16.4 44 24 44z"/>
-            <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.5-2.6 4.6-4.8 6l6.2 5.2C40.5 35.5 44 30.1 44 24c0-1.3-.1-2.7-.4-4z"/>
-          </svg>
-          Continue with Google
-        </button>
+        {/* Official Google OAuth Component */}
+        <div className="w-full flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Sign-In failed or was closed')}
+            useOneTap
+            theme="filled_black"
+            shape="pill"
+            text="continue_with"
+          />
+        </div>
 
         {/* Footer */}
         <p className="text-center text-sm text-text-muted mt-1">

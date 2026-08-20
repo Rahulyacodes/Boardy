@@ -16,8 +16,23 @@ const userSchema = new mongoose.Schema({
     },
     passwordHash: {
         type: String,
-        required: true
-    }, 
+        required: function() {
+            // Password is only required if this is not a Google OAuth account
+            return !this.googleId
+        }
+    },
+    name: {
+        type: String,
+        trim: true
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
+    avatar: {
+        type: String
+    }
 }, {timestamps: true})
 
 module.exports = mongoose.model('User', userSchema)

@@ -32,6 +32,14 @@ const userSchema = new mongoose.Schema({
     },
     avatar: {
         type: String
+    },
+    resetOtp: {
+        type: String,
+        default: null
+    },
+    resetOtpExpires: {
+        type: Date,
+        default: null
     }
 }, {timestamps: true})
 

@@ -3,12 +3,16 @@ import { Link, useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { login, googleLogin } from '../api'
 import { useAuth } from '../context/AuthContext'
+import ForgotPasswordModal from '../components/auth/ForgotPasswordModal'
 
 function LoginPage() {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword]     = useState('')
   const [error, setError]           = useState('')
   const [loading, setLoading]       = useState(false)
+
+  // Forgot Password modal state
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   // Google OAuth states
   const [pendingGoogleCredential, setPendingGoogleCredential] = useState(null)
@@ -138,6 +142,13 @@ function LoginPage() {
               <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                 Password
               </label>
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-xs text-accent-purple hover:underline hover:text-accent-purple-hover font-medium transition-colors cursor-pointer"
+              >
+                Forgot password?
+              </button>
             </div>
             <input
               type="password"
@@ -195,6 +206,11 @@ function LoginPage() {
           </Link>
         </p>
 
+        {/* Forgot Password Modal */}
+        <ForgotPasswordModal
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+        />
       </div>
     </div>
   )

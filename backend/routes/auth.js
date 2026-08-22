@@ -231,33 +231,66 @@ router.post('/forgot-password', async (req, res, next) => {
 
         // Generate 6-digit random OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString()
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
+        const otpExpires = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes expiry
 
         user.resetOtp = otp
         user.resetOtpExpires = otpExpires
         await user.save()
 
-        // HTML Email Template
+        // HTML Email Template for PrimeTeam
         const emailHtml = `
-            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; background-color: #141419; color: #ffffff; border-radius: 16px; border: 1px solid #2D2D3A;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <h2 style="color: #A855F7; margin: 0; font-size: 24px;">Boardify</h2>
-                    <p style="color: #94A3B8; font-size: 14px; margin-top: 4px;">Password Reset Request</p>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #0D0D12; padding: 40px 24px; color: #FFFFFF; border-radius: 20px;">
+                <!-- Header / Brand -->
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <div style="display: inline-block; width: 52px; height: 52px; background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%); border-radius: 14px; line-height: 52px; color: #ffffff; font-weight: 800; font-size: 24px; margin-bottom: 12px; box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);">
+                        P
+                    </div>
+                    <h1 style="color: #FFFFFF; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">PrimeTeam</h1>
+                    <p style="color: #94A3B8; font-size: 13px; margin-top: 4px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase;">Account Security Notification</p>
                 </div>
-                <p style="color: #E2E8F0; font-size: 14px;">Hello ${user.name || user.username},</p>
-                <p style="color: #94A3B8; font-size: 14px; line-height: 1.5;">You requested to reset your password. Use the 6-digit OTP code below to verify your request:</p>
-                <div style="text-align: center; margin: 28px 0;">
-                    <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #A855F7; background: #261738; padding: 12px 24px; border-radius: 12px; border: 1px solid #7E22CE; display: inline-block;">${otp}</span>
+
+                <!-- Main Content Card -->
+                <div style="background-color: #161622; border: 1px solid #28283A; border-radius: 16px; padding: 32px 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <p style="color: #F1F5F9; font-size: 16px; font-weight: 600; margin-top: 0; margin-bottom: 12px;">Hello ${user.name || user.username},</p>
+                    <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+                        We received a request to reset the password for your <strong>PrimeTeam</strong> account (<code>${user.email}</code>). Use your 6-digit verification security code below to complete this process:
+                    </p>
+
+                    <!-- OTP Code Badge (Mobile Responsive & Centered) -->
+                    <div style="text-align: center; margin: 28px 0; width: 100%;">
+                        <div style="display: inline-block; background: #201833; border: 1.5px solid #8B5CF6; border-radius: 14px; padding: 14px 20px; max-width: 100%; box-sizing: border-box;">
+                            <span style="font-family: 'Courier New', Courier, monospace; font-size: 28px; font-weight: 800; letter-spacing: 6px; color: #A78BFA; display: inline-block; margin-right: -6px;">${otp}</span>
+                        </div>
+                        <p style="color: #94A3B8; font-size: 13px; margin-top: 14px; font-weight: 500;">
+                            ⏱️ This code will expire in <strong style="color: #F3F4F6;">5 minutes</strong>
+                        </p>
+                    </div>
+
+                    <!-- Security Warning Callout -->
+                    <div style="background-color: #1E1B2E; border-left: 4px solid #8B5CF6; border-radius: 8px; padding: 14px 16px; margin-top: 24px;">
+                        <p style="color: #E2E8F0; font-size: 13px; margin: 0; line-height: 1.5;">
+                            🔒 <strong>Security Warning:</strong> PrimeTeam employees will never ask you for this code. Do not share this 6-digit code with anyone.
+                        </p>
+                    </div>
+
+                    <p style="color: #64748B; font-size: 13px; line-height: 1.5; margin-top: 24px; margin-bottom: 0;">
+                        If you did not request a password reset, please ignore this email or contact <a href="mailto:primeteam.security@gmail.com" style="color: #A78BFA; text-decoration: none; font-weight: 500;">PrimeTeam Security</a> immediately.
+                    </p>
                 </div>
-                <p style="color: #64748B; font-size: 12px; text-align: center;">This code will expire in <strong>10 minutes</strong>. If you did not request this, please ignore this email.</p>
+
+                <!-- Footer -->
+                <div style="text-align: center; margin-top: 32px; border-top: 1px solid #1E1E2E; padding-top: 20px;">
+                    <p style="color: #64748B; font-size: 12px; margin: 0;">© 2026 PrimeTeam Technologies Inc. All rights reserved.</p>
+                    <p style="color: #475569; font-size: 11px; margin-top: 6px;">Automated security transmission — Please do not reply directly to this message.</p>
+                </div>
             </div>
         `
 
         await sendEmail({
             to: user.email,
-            subject: 'Boardify - Your Password Reset OTP',
+            subject: 'PrimeTeam - Password Reset Verification Code',
             html: emailHtml,
-            text: `Your Boardify password reset OTP code is: ${otp}. Valid for 10 minutes.`
+            text: `Your PrimeTeam password reset OTP code is: ${otp}. Valid for 5 minutes. Do not share this code with anyone.`
         })
 
         res.json({ message: 'A 6-digit OTP code has been sent to your email address' })
@@ -313,8 +346,8 @@ router.post('/reset-password', async (req, res, next) => {
             return next(err)
         }
 
-        if (newPassword.length < 6) {
-            const err = new Error('Password must be at least 6 characters long')
+        if (newPassword.length < 8) {
+            const err = new Error('Password must be at least 8 characters long')
             err.status = 400
             return next(err)
         }

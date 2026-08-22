@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { forgotPassword, verifyOtp, resetPassword } from '../../api'
 
 function ForgotPasswordModal({ isOpen, onClose }) {
@@ -11,12 +11,42 @@ function ForgotPasswordModal({ isOpen, onClose }) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(300) // 5 minutes in seconds
+  const [resendCooldown, setResendCooldown] = useState(120) // 2 minutes cooldown (120 seconds)
+
+  // Live 5-Minute Countdown Timer for OTP Expiry
+  useEffect(() => {
+    let timerId
+    if (isOpen && step === 2 && timeLeft > 0) {
+      timerId = setInterval(() => {
+        setTimeLeft(prev => prev - 1)
+      }, 1000)
+    }
+    return () => clearInterval(timerId)
+  }, [isOpen, step, timeLeft])
+
+  // Live 2-Minute Countdown Timer for Resend Button Cooldown
+  useEffect(() => {
+    let timerId
+    if (isOpen && step === 2 && resendCooldown > 0) {
+      timerId = setInterval(() => {
+        setResendCooldown(prev => prev - 1)
+      }, 1000)
+    }
+    return () => clearInterval(timerId)
+  }, [isOpen, step, resendCooldown])
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
   if (!isOpen) return null
 
   // Step 1: Send OTP
   const handleSendOtp = async (e) => {
-    e.preventDefault()
+    if (e) e.preventDefault()
     if (!email.trim()) return
     setError('')
     setMessage('')
@@ -25,6 +55,8 @@ function ForgotPasswordModal({ isOpen, onClose }) {
     try {
       const res = await forgotPassword({ email: email.trim() })
       setMessage(res.data.message || 'OTP sent successfully!')
+      setTimeLeft(300) // Reset 5-minute expiry
+      setResendCooldown(120) // Reset 2-minute resend cooldown
       setStep(2)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to send OTP email. Please try again.')
@@ -59,7 +91,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
   const handleResetPassword = async (e) => {
     e.preventDefault()
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long')
+      setError('Password must be at least 8 characters long')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -130,7 +162,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
             {step === 1 && 'Enter your account email address to receive an OTP'}
             {step === 2 && `We sent a 6-digit code to ${email}`}
             {step === 3 && 'Choose a new password for your account'}
-            {step === 4 && 'Your password has been updated successfully.'}
+            {step === 4}
           </p>
         </div>
 
@@ -187,33 +219,82 @@ function ForgotPasswordModal({ isOpen, onClose }) {
         {/* STEP 2: Enter OTP */}
         {step === 2 && (
           <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted text-center">
-                6-Digit Security OTP
-              </label>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  6-Digit Security OTP
+                </label>
+                {/* Live Countdown Badge */}
+                <div className={`text-xs font-medium px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
+                  timeLeft > 0 
+                    ? 'bg-accent-purple/10 border-accent-purple/30 text-accent-purple' 
+                    : 'bg-danger/10 border-danger/30 text-danger'
+                }`}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span>{timeLeft > 0 ? `OTP expires in ${formatTime(timeLeft)}` : 'OTP Expired'}</span>
+                </div>
+              </div>
+
               <input
                 type="text"
                 maxLength="6"
                 value={otp}
                 onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="123456"
+                disabled={timeLeft === 0}
                 required
-                className="w-full px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] rounded-xl bg-bg-primary border border-bg-border text-accent-purple placeholder:text-text-muted/20 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple"
+                className="w-full px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] rounded-xl bg-bg-primary border border-bg-border text-accent-purple placeholder:text-text-muted/20 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple disabled:opacity-50 disabled:cursor-not-allowed"
               />
+
+              {timeLeft === 0 ? (
+                <div className="text-center p-2 rounded-xl bg-danger/10 border border-danger/20">
+                  <p className="text-xs text-danger font-medium mb-1.5">
+                    This OTP code has expired.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={loading}
+                    className="text-xs font-semibold text-accent-purple hover:underline cursor-pointer"
+                  >
+                    {loading ? 'Resending...' : 'Resend New OTP Code'}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-text-muted text-center mt-0.5 leading-relaxed">
+                  Didn't receive the email? Check spam folder or{' '}
+                  {resendCooldown > 0 ? (
+                    <span className="text-text-muted font-medium">
+                      Resend in <strong className="text-accent-purple font-mono">{formatTime(resendCooldown)}</strong>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={loading}
+                      className="text-accent-purple hover:underline font-medium cursor-pointer"
+                    >
+                      {loading ? 'Resending...' : 'Resend Code'}
+                    </button>
+                  )}
+                </p>
+              )}
             </div>
 
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="w-1/3 py-3 px-3 rounded-xl text-xs font-semibold text-text-muted bg-bg-primary border border-bg-border hover:bg-bg-border/30 transition-all"
+                className="w-1/3 py-3 px-3 rounded-xl text-xs font-semibold text-text-muted bg-bg-primary border border-bg-border hover:bg-bg-border/30 transition-all cursor-pointer"
               >
                 Back
               </button>
               <button
                 type="submit"
-                disabled={loading || otp.length !== 6}
-                className="w-2/3 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-accent-purple/20"
+                disabled={loading || otp.length !== 6 || timeLeft === 0}
+                className="w-2/3 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-accent-purple/20"
               >
                 {loading ? 'Verifying...' : 'Verify OTP'}
               </button>

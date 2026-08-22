@@ -31,7 +31,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
   }
 
   const mailOptions = {
-    from: `"Boardify Security" <${process.env.EMAIL_USER || 'no-reply@boardify.com'}>`,
+    from: `"PrimeTeam Security" <${process.env.EMAIL_USER || 'security@primeteam.com'}>`,
     to,
     subject,
     text: text || '',

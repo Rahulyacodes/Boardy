@@ -75,14 +75,14 @@ router.get('/:boardId', authenticate, authorizeBoard, async (req, res,next) => {
     const listWithCards = await Promise.all(
         lists.map(async list => {
             const cards = await Card.find({listId: list._id})
-                .populate('assignedMembers', 'username email')
+                .populate('assignedMembers', 'name username email avatar')
                 .sort({position: 1})
             return {...list.toObject(), cards}
         })
     )
 
     // Populate member details (username & email)
-    const populatedBoard = await Board.findById(board._id).populate('members.userId', 'username email')
+    const populatedBoard = await Board.findById(board._id).populate('members.userId', 'name username email avatar')
 
     res.json({ ...(populatedBoard ? populatedBoard.toObject() : board.toObject()), lists: listWithCards })
 
@@ -169,7 +169,7 @@ router.post('/:boardId/members', authenticate, authorizeBoard, requireOwner, asy
 
     req.board.members.push({ userId: userToAdd._id, role: req.body.role || 'member' })
     await req.board.save()
-    const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
+    const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'name username email avatar')
 
     // Trigger Notification
     await createNotification({
@@ -199,7 +199,7 @@ router.delete('/:boardId/members/:userId', authenticate, authorizeBoard, require
             (member) => member.userId.toString() !== userId
         )
         await req.board.save()
-        const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'username email')
+        const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'name username email avatar')
 
         // Trigger Notification
         await createNotification({
@@ -229,7 +229,7 @@ router.patch('/:boardId/members/:userId', authenticate, authorizeBoard, requireO
             { _id: boardId, 'members.userId': userId },
             { $set: { 'members.$.role': role || 'member' } },
             { new: true }
-        ).populate('members.userId', 'username email')
+        ).populate('members.userId', 'name username email avatar')
 
         if (!updatedBoard) {
             const err = new Error('Member not found on this board')

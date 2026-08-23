@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { searchAll, getNotifications, markNotificationRead, markAllNotificationsRead } from '../../api'
+import { getDiceBearAvatar } from '../../utils/avatars'
 
 function Navbar({ onSearch }) {
   const { user, logoutUser } = useAuth()
@@ -68,18 +69,8 @@ function Navbar({ onSearch }) {
   const notifRef = useRef(null)
   const searchRef = useRef(null)
 
-  // Derive 1 or 2 letter initials from username
-  const getInitials = (name) => {
-    if (!name) return 'U'
-    const parts = name.trim().split(' ')
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase()
-    }
-    return name.slice(0, 2).toUpperCase()
-  }
-
-  const initials = getInitials(user?.username || 'User')
   const userEmail = user?.email || `${(user?.username || 'user').toLowerCase().replace(/\s+/g, '')}@gmail.com`
+  const userAvatarUri = getDiceBearAvatar(user?.avatar || user?.username || 'Gizmo')
 
   // Debounced API search effect
   useEffect(() => {
@@ -386,21 +377,21 @@ function Navbar({ onSearch }) {
         <div className="relative ml-1" ref={profileRef}>
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 border border-white/30 flex items-center justify-center font-bold text-xs text-white shadow hover:scale-105 transition-transform"
+            className="w-8 h-8 rounded-full bg-[#13131A] border border-purple-500/50 p-0.5 flex items-center justify-center shadow hover:scale-105 transition-transform overflow-hidden"
           >
-            {initials}
+            <img src={userAvatarUri} alt="User Avatar" className="w-full h-full object-contain rounded-full" />
           </button>
 
           {profileOpen && (
             <div className="absolute right-0 mt-2 w-72 bg-[#1C1C24] border border-[#2A2A35] rounded-2xl shadow-2xl py-3 z-50 text-xs text-gray-200">
               {/* User info header */}
               <div className="px-4 pb-3 border-b border-[#2A2A35] flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-sm text-white shadow">
-                  {initials}
+                <div className="w-10 h-10 rounded-xl bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center shadow shrink-0 overflow-hidden">
+                  <img src={userAvatarUri} alt="User Avatar" className="w-full h-full object-contain" />
                 </div>
                 <div className="overflow-hidden">
-                  <h4 className="font-bold text-sm text-white truncate">{user?.username || 'User'}</h4>
-                  <p className="text-[11px] text-gray-400 truncate">{userEmail}</p>
+                  <h4 className="font-bold text-sm text-white truncate">{user?.name || user?.username || 'User'}</h4>
+                  <p className="text-[11px] text-gray-400 truncate">@{user?.username || 'username'} • {userEmail}</p>
                 </div>
               </div>
 
@@ -409,12 +400,12 @@ function Navbar({ onSearch }) {
                 <div className="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                   Account
                 </div>
-                <button className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200">
-                  Switch accounts
-                </button>
-                <button className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200 flex items-center justify-between">
+                <button
+                  onClick={() => { navigate('/settings'); setProfileOpen(false); }}
+                  className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200 flex items-center justify-between cursor-pointer"
+                >
                   <span>Manage account</span>
-                  <span className="text-[10px] text-gray-400">↗</span>
+                  <span className="text-[10px] text-purple-400 font-bold">↗</span>
                 </button>
               </div>
 
@@ -423,25 +414,19 @@ function Navbar({ onSearch }) {
               {/* APP / TRELLO section */}
               <div>
                 <div className="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  Trello
+                  PrimeTeam Settings
                 </div>
-                <button className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200">
+                <button
+                  onClick={() => { navigate('/settings'); setProfileOpen(false); }}
+                  className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200 cursor-pointer"
+                >
                   Profile and visibility
                 </button>
-                <button className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200">
-                  Activity
-                </button>
-                <button className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200">
-                  Cards
-                </button>
-                <button className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200">
-                  Settings
-                </button>
-                <button className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200">
-                  Help
-                </button>
-                <button className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200">
-                  Shortcuts
+                <button
+                  onClick={() => { navigate('/settings'); setProfileOpen(false); }}
+                  className="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors text-gray-200 cursor-pointer"
+                >
+                  Settings & Security
                 </button>
               </div>
 

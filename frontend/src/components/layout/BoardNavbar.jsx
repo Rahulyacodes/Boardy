@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { updateBoard, deleteBoard, inviteMember, removeMember, updateMemberRole, getBoard } from '../../api'
 import { useAuth } from '../../context/AuthContext'
+import { getDiceBearAvatar } from '../../utils/avatars'
 
 export const GRADIENT_PRESETS = [
   { name: 'City Sunset', value: 'linear-gradient(135deg, #8B3A1C 0%, #E66820 40%, #1D1D2B 100%)' },
@@ -300,14 +301,14 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
           {sortedMembers.map((m, idx) => {
             const memberObj = m.userId || {}
             const username = memberObj.username || 'User'
-            const initials = getInitials(username)
+            const avatarUri = getDiceBearAvatar(memberObj.avatar || username)
             return (
               <div
                 key={m._id || idx}
                 title={`${username} (${m.role})`}
-                className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 border-2 border-[#181820] flex items-center justify-center font-bold text-[11px] text-white shadow"
+                className="w-8 h-8 rounded-full bg-[#13131A] border-2 border-[#181820] flex items-center justify-center p-0.5 overflow-hidden shadow"
               >
-                {initials}
+                <img src={avatarUri} alt={username} className="w-full h-full object-contain rounded-full" />
               </div>
             )
           })}
@@ -523,11 +524,12 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
             <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
               {sortedMembers.map((m, idx) => {
                 const memberObj = m.userId || {}
-                const uName = memberObj.username || 'User'
+                const displayName = memberObj.name || memberObj.username || 'User'
+                const handleUsername = memberObj.username || 'username'
                 const uEmail = memberObj.email || ''
                 const uId = memberObj._id || memberObj
-                const initials = getInitials(uName)
-                const isCurrentUser = (uId === user?.id)
+                const avatarUri = getDiceBearAvatar(memberObj.avatar || handleUsername)
+                const isCurrentUser = (uId === user?.id || uId === user?._id)
 
                 return (
                   <div
@@ -535,16 +537,16 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
                     className="flex items-center justify-between bg-[#181824] border border-[#323342] rounded-xl px-3 py-2.5"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-xs text-white">
-                        {initials}
+                      <div className="w-8 h-8 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
+                        <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
                       </div>
                       <div>
                         <p className="text-xs font-bold text-white flex items-center gap-1">
-                          <span>{uName}</span>
+                          <span>{displayName}</span>
                           {isCurrentUser && <span className="text-gray-400 font-normal">(you)</span>}
                         </p>
                         <p className="text-[11px] text-gray-400">
-                          @{uName.toLowerCase().replace(/\s+/g, '')} {uEmail ? `• ${uEmail}` : ''}
+                          @{handleUsername} {uEmail ? `• ${uEmail}` : ''}
                         </p>
                       </div>
                     </div>

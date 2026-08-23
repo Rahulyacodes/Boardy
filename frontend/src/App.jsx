@@ -5,6 +5,7 @@ import LoginPage     from './pages/LoginPage'
 import RegisterPage  from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import BoardPage     from './pages/BoardPage'
+import SettingsPage  from './pages/SettingsPage'
 import NotFoundPage  from './pages/NotFoundPage'
 
 // protects routes — if not logged in, redirect to login
@@ -27,6 +28,11 @@ function App() {
         <Route path="/board/:boardId" element={
           <ProtectedRoute>
             <BoardPage />
+          </ProtectedRoute>
+        }/>
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         }/>
         <Route path="*" element={<NotFoundPage />} />

@@ -2,6 +2,7 @@ const express = require('express')
 const bcrypt  = require('bcryptjs')
 const jwt     = require('jsonwebtoken')
 const User    = require('../models/User')
+const authenticate = require('../middleware/authenticate')
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET
@@ -269,7 +270,7 @@ router.post('/forgot-password', async (req, res, next) => {
                     <!-- Security Warning Callout -->
                     <div style="background-color: #1E1B2E; border-left: 4px solid #8B5CF6; border-radius: 8px; padding: 14px 16px; margin-top: 24px;">
                         <p style="color: #E2E8F0; font-size: 13px; margin: 0; line-height: 1.5;">
-                            🔒 <strong>Security Warning:</strong> PrimeTeam employees will never ask you for this code. Do not share this 6-digit code with anyone.
+                            🔒 <strong>Security Warning:</strong> PrimeTeam will never ask you for this code. Do not share this 6-digit code with anyone.
                         </p>
                     </div>
 
@@ -374,6 +375,99 @@ router.post('/reset-password', async (req, res, next) => {
 
         res.json({ message: 'Password updated successfully! You can now log in with your new password.' })
 
+    } catch (err) {
+        next(err)
+    }
+})
+
+//------------------------------------------------- Update User Profile --------------------------------------------------------
+// PUT /api/auth/profile
+router.put('/profile', authenticate, async (req, res, next) => {
+    try {
+        const { name, username, avatar } = req.body
+        const user = await User.findById(req.user.id)
+
+        if (!user) {
+            const err = new Error('User not found')
+            err.status = 404
+            return next(err)
+        }
+
+        // If username is changing, verify availability
+        if (username && username.trim() !== user.username) {
+            const existingUsername = await User.findOne({ username: username.trim() })
+            if (existingUsername) {
+                const err = new Error('Username is already taken')
+                err.status = 400
+                return next(err)
+            }
+            user.username = username.trim()
+        }
+
+        if (name !== undefined) user.name = name.trim()
+        if (avatar !== undefined) user.avatar = avatar.trim()
+
+        await user.save()
+
+        res.json({
+            message: 'Profile updated successfully!',
+            user: {
+                id: user._id,
+                _id: user._id,
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                avatar: user.avatar,
+                googleId: user.googleId,
+                hasPassword: !!user.passwordHash,
+                createdAt: user.createdAt
+            }
+        })
+    } catch (err) {
+        next(err)
+    }
+})
+
+//------------------------------------------------- Change Password (Logged-In) --------------------------------------------------------
+// PUT /api/auth/change-password
+router.put('/change-password', authenticate, async (req, res, next) => {
+    try {
+        const { currentPassword, newPassword } = req.body
+        const user = await User.findById(req.user.id)
+
+        if (!user) {
+            const err = new Error('User not found')
+            err.status = 404
+            return next(err)
+        }
+
+        if (!newPassword || newPassword.length < 6) {
+            const err = new Error('New password must be at least 6 characters long')
+            err.status = 400
+            return next(err)
+        }
+
+        // If user already has a password, verify current password
+        if (user.passwordHash) {
+            if (!currentPassword) {
+                const err = new Error('Current password is required')
+                err.status = 400
+                return next(err)
+            }
+            const isMatch = await bcrypt.compare(currentPassword, user.passwordHash)
+            if (!isMatch) {
+                const err = new Error('Current password is incorrect')
+                err.status = 400
+                return next(err)
+            }
+        }
+
+        // Hash & save new password
+        const salt = await bcrypt.genSalt(10)
+        user.passwordHash = await bcrypt.hash(newPassword, salt)
+        await user.save()
+
+        res.json({ message: 'Password updated successfully!' })
     } catch (err) {
         next(err)
     }

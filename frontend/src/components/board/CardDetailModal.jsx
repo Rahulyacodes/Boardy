@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { updateCard, getCardComments, addCardComment, deleteCardComment } from '../../api'
 import { useAuth } from '../../context/AuthContext'
+import { getDiceBearAvatar } from '../../utils/avatars'
 
 export const LABEL_COLORS = [
   { color: '#EF4444', name: 'Urgent' },
@@ -230,7 +231,7 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
               {(boardMembers || []).map((m) => {
                 const uObj = m.userId || {}
                 const uId = uObj._id || uObj
-                const uName = uObj.username || 'User'
+                const displayName = uObj.name || uObj.username || 'User'
                 const isAssigned = assignedMembers.some(
                   (assigned) => (assigned._id || assigned) === uId
                 )
@@ -256,10 +257,10 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
                         : 'bg-[#0F0F14] border-[#2A2A38] text-gray-400 hover:text-white hover:border-gray-500'
                     }`}
                   >
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
-                      {uName.slice(0, 2).toUpperCase()}
+                    <div className="w-5 h-5 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
+                      <img src={getDiceBearAvatar(uObj.avatar || displayName)} alt={displayName} className="w-full h-full object-contain rounded-full" />
                     </div>
-                    <span>{uName}</span>
+                    <span>{displayName}</span>
                     {isAssigned && <span className="text-purple-400 font-bold">✓</span>}
                   </button>
                 )
@@ -391,14 +392,14 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
                 <p className="text-xs text-gray-500 italic">No comments yet. Start the discussion!</p>
               ) : (
                 comments.map((c) => {
-                  const authorName = c.authorId?.username || 'User'
-                  const initials = authorName.slice(0, 2).toUpperCase()
+                  const authorName = c.authorId?.name || c.authorId?.username || 'User'
+                  const authorAvatarUri = getDiceBearAvatar(c.authorId?.avatar || authorName)
                   const isAuthor = c.authorId?._id === currentUser?.id || c.authorId === currentUser?.id
 
                   return (
                     <div key={c._id} className="flex items-start gap-2.5 bg-[#0F0F14] border border-[#2A2A38] rounded-xl p-3">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-[10px] text-white shrink-0 shadow-sm">
-                        {initials}
+                      <div className="w-7 h-7 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                        <img src={authorAvatarUri} alt={authorName} className="w-full h-full object-contain rounded-full" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1 mb-1">

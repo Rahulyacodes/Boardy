@@ -14,7 +14,7 @@ router.get('/:cardId/comments', authenticate, async (req, res, next) => {
     const { cardId } = req.params
 
     const comments = await Comment.find({ cardId })
-      .populate('authorId', 'username email')
+      .populate('authorId', 'name username email avatar')
       .sort({ createdAt: 1 })
 
     res.json(comments)
@@ -48,7 +48,7 @@ router.post('/:cardId/comments', authenticate, authorizeBoardRole(['owner', 'mem
       text: text.trim()
     })
 
-    const populatedComment = await Comment.findById(comment._id).populate('authorId', 'username email')
+    const populatedComment = await Comment.findById(comment._id).populate('authorId', 'name username email avatar')
 
     // Find list and board for notification link & board owner
     const list = await List.findById(card.listId)

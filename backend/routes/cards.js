@@ -59,7 +59,7 @@ router.patch('/:cardId', authenticate, authorizeCard, authorizeBoardRole(['owner
       req.card._id,
       updates,
       { new: true }
-    ).populate('assignedMembers', 'username email')
+    ).populate('assignedMembers', 'name username email avatar')
 
     // Trigger Notification for newly assigned members
     if (assignedMembers !== undefined && Array.isArray(assignedMembers)) {

@@ -13,6 +13,7 @@ import {
 } from '../api'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/layout/Navbar'
+import { getDiceBearAvatar } from '../utils/avatars'
 import BoardNavbar from '../components/layout/BoardNavbar'
 import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
@@ -519,15 +520,15 @@ function BoardPage() {
                               {hasAssigned && (
                                 <div className="flex items-center -space-x-1.5 overflow-hidden ml-auto">
                                   {card.assignedMembers.map((m, idx) => {
-                                    const uName = m.username || 'User'
-                                    const initials = uName.slice(0, 2).toUpperCase()
+                                    const displayName = m.name || m.username || 'User'
+                                    const avatarUri = getDiceBearAvatar(m.avatar || displayName)
                                     return (
                                       <div
                                         key={m._id || idx}
-                                        title={`Assigned to ${uName}`}
-                                        className="w-5 h-5 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 border border-[#22222B] flex items-center justify-center font-bold text-[9px] text-white shadow-sm"
+                                        title={`Assigned to ${displayName}`}
+                                        className="w-5 h-5 rounded-full bg-[#13131A] border border-[#22222B] flex items-center justify-center p-0.5 shadow-sm overflow-hidden"
                                       >
-                                        {initials}
+                                        <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
                                       </div>
                                     )
                                   })}

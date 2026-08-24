@@ -40,6 +40,26 @@ const userSchema = new mongoose.Schema({
     resetOtpExpires: {
         type: Date,
         default: null
+    },
+    loginOtp: {
+        type: String,
+        default: null
+    },
+    loginOtpExpires: {
+        type: Date,
+        default: null
+    },
+    pendingNewEmail: {
+        type: String,
+        default: null
+    },
+    emailChangeOtp: {
+        type: String,
+        default: null
+    },
+    emailChangeOtpExpires: {
+        type: Date,
+        default: null
     }
 }, {timestamps: true})
 

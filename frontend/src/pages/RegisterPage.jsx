@@ -1,14 +1,17 @@
-// src/pages/RegisterPage.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
-import { register, login, googleLogin } from '../api'
+import { sendRegistrationOtp, verifyRegistrationOtp, googleLogin } from '../api'
 import { useAuth } from '../context/AuthContext'
 
 function RegisterPage() {
   const [form, setForm]       = useState({ username: '', email: '', password: '' })
+  const [step, setStep]       = useState('details') // 'details' | 'otp'
+  const [otp, setOtp]         = useState('')
   const [error, setError]     = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   // Google OAuth states
   const [pendingGoogleCredential, setPendingGoogleCredential] = useState(null)
@@ -20,27 +23,82 @@ function RegisterPage() {
   const { loginUser } = useAuth()
   const navigate      = useNavigate()
 
+  useEffect(() => {
+    let timer
+    if (resendCooldown > 0) {
+      timer = setInterval(() => setResendCooldown(prev => prev - 1), 1000)
+    }
+    return () => clearInterval(timer)
+  }, [resendCooldown])
+
   // Single handler for all input fields
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleSubmit = async (e) => {
+  // Step 1: Request OTP
+  const handleRequestOtp = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccessMsg('')
+
+    if (!form.username.trim() || !form.email.trim() || !form.password) {
+      setError('Please fill in all required fields.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await sendRegistrationOtp(form)
+      setStep('otp')
+      setSuccessMsg(res.data.message || 'Verification code sent to your email.')
+      setResendCooldown(30)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to send verification code. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Resend OTP Code
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return
+    setError('')
+    setSuccessMsg('')
     setLoading(true)
 
     try {
-      // 1. Register user
-      await register(form)
+      const res = await sendRegistrationOtp(form)
+      setSuccessMsg(res.data.message || 'New verification code sent!')
+      setResendCooldown(30)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to resend verification code.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      // 2. Auto-login immediately so user doesn't have to sign in manually
-      const res = await login({ identifier: form.email, password: form.password })
+  // Step 2: Verify OTP & Complete Account Registration
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMsg('')
+
+    if (!otp.trim() || otp.trim().length !== 6) {
+      setError('Please enter the 6-digit verification code.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await verifyRegistrationOtp({
+        email: form.email.trim(),
+        otp: otp.trim()
+      })
       loginUser(res.data.user, res.data.token)
       navigate('/')
-
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create account. Try again.')
+      setError(err.response?.data?.error || 'Invalid verification code. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -111,8 +169,18 @@ function RegisterPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Boardify</h1>
-          <p className="text-sm text-text-muted">Create your workspace to get started</p>
+          <p className="text-sm text-text-muted">
+            {step === 'details' ? 'Create your workspace to get started' : 'Verify your email to complete registration'}
+          </p>
         </div>
+
+        {/* Success / Info notification */}
+        {successMsg && (
+          <div className="p-3.5 rounded-xl text-xs font-medium bg-purple-500/10 border border-purple-500/30 text-purple-300 flex items-center gap-2">
+            <span>📩</span>
+            <span>{successMsg}</span>
+          </div>
+        )}
 
         {/* Error notification */}
         {error && (
@@ -126,76 +194,137 @@ function RegisterPage() {
           </div>
         )}
 
-        {/* Registration Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          
-          {/* Username Field */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Username
-            </label>
-            <input
-              type="text"
-              name="username"
-              value={form.username}
-              onChange={handleChange}
-              placeholder="alice"
-              required
-              className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
-            />
-          </div>
+        {/* STEP 1: Registration Form */}
+        {step === 'details' ? (
+          <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
+            
+            {/* Username Field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                Username
+              </label>
+              <input
+                type="text"
+                name="username"
+                value={form.username}
+                onChange={handleChange}
+                placeholder="alice"
+                required
+                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+              />
+            </div>
 
-          {/* Email Field */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Email Address
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="alice@gmail.com"
-              required
-              className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
-            />
-          </div>
+            {/* Email Field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                Email Address
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="alice@gmail.com"
+                required
+                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+              />
+            </div>
 
-          {/* Password Field */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-              className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
-            />
-          </div>
+            {/* Password Field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                placeholder="••••••••"
+                required
+                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+              />
+            </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-accent-purple/20 flex items-center justify-center gap-2 cursor-pointer"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Creating account...</span>
-              </>
-            ) : (
-              'Create account'
-            )}
-          </button>
-        </form>
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-accent-purple/20 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Sending Code...</span>
+                </>
+              ) : (
+                'Continue with Email Verification'
+              )}
+            </button>
+          </form>
+        ) : (
+          /* STEP 2: OTP Verification Form */
+          <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
+            <div className="bg-[#121218] border border-[#282838] rounded-xl p-3.5 text-center">
+              <p className="text-xs text-gray-400">Enter the 6-digit code sent to</p>
+              <p className="text-sm font-bold text-white mt-0.5 truncate">{form.email}</p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                6-Digit Verification OTP
+              </label>
+              <input
+                type="text"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                placeholder="123456"
+                required
+                className="w-full text-center text-2xl font-mono tracking-widest px-4 py-3 rounded-xl bg-bg-primary border border-accent-purple/50 text-white placeholder:text-text-muted/30 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || otp.length !== 6}
+              className="w-full mt-1 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-accent-purple/20 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Verifying & Registering...</span>
+                </>
+              ) : (
+                'Verify & Create Account'
+              )}
+            </button>
+
+            <div className="flex items-center justify-between text-xs mt-1">
+              <button
+                type="button"
+                onClick={() => { setStep('details'); setError(''); setSuccessMsg('') }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ← Change Email
+              </button>
+              <button
+                type="button"
+                disabled={resendCooldown > 0 || loading}
+                onClick={handleResendOtp}
+                className="text-accent-purple hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+              >
+                {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend Code'}
+              </button>
+            </div>
+          </form>
+        )}
 
         {/* Divider */}
         <div className="flex items-center gap-3 my-1">

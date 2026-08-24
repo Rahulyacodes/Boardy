@@ -2,6 +2,7 @@ const express = require('express')
 const bcrypt  = require('bcryptjs')
 const jwt     = require('jsonwebtoken')
 const User    = require('../models/User')
+const RegistrationOtp = require('../models/RegistrationOtp')
 const authenticate = require('../middleware/authenticate')
 
 const router = express.Router()
@@ -468,6 +469,389 @@ router.put('/change-password', authenticate, async (req, res, next) => {
         await user.save()
 
         res.json({ message: 'Password updated successfully!' })
+    } catch (err) {
+        next(err)
+    }
+})
+
+//------------------------------------------------- Registration OTP Flow --------------------------------------------------------
+// POST /api/auth/register-otp
+router.post('/register-otp', async (req, res, next) => {
+    try {
+        const { username, email, password } = req.body
+
+        if (!username || !email || !password) {
+            const err = new Error('Username, email, and password are required')
+            err.status = 400
+            return next(err)
+        }
+
+        const normalizedEmail = email.toLowerCase().trim()
+        const normalizedUsername = username.trim()
+
+        // Check if email or username already exists in User DB
+        const existingEmail = await User.findOne({ email: normalizedEmail })
+        if (existingEmail) {
+            const err = new Error('Email is already registered. Please sign in instead.')
+            err.status = 400
+            return next(err)
+        }
+
+        const existingUsername = await User.findOne({ username: normalizedUsername })
+        if (existingUsername) {
+            const err = new Error('Username is already taken. Please choose another.')
+            err.status = 400
+            return next(err)
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10)
+        const otp = Math.floor(100000 + Math.random() * 900000).toString()
+        const otpExpires = new Date(Date.now() + 5 * 60 * 1000)
+
+        // Save or update pending Registration OTP
+        await RegistrationOtp.findOneAndUpdate(
+            { email: normalizedEmail },
+            { username: normalizedUsername, passwordHash, otp, otpExpires },
+            { upsert: true, new: true }
+        )
+
+        // Send Email
+        const emailHtml = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background-color: #0D0D12; padding: 40px 24px; color: #FFFFFF; border-radius: 20px;">
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <div style="display: inline-block; width: 52px; height: 52px; background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%); border-radius: 14px; line-height: 52px; color: #ffffff; font-weight: 800; font-size: 24px; margin-bottom: 12px;">P</div>
+                    <h1 style="color: #FFFFFF; margin: 0; font-size: 26px; font-weight: 700;">PrimeTeam</h1>
+                    <p style="color: #94A3B8; font-size: 13px; margin-top: 4px; font-weight: 500; text-transform: uppercase;">Account Registration Verification</p>
+                </div>
+                <div style="background-color: #161622; border: 1px solid #28283A; border-radius: 16px; padding: 32px 28px;">
+                    <p style="color: #F1F5F9; font-size: 16px; font-weight: 600; margin-top: 0;">Welcome, ${normalizedUsername}!</p>
+                    <p style="color: #94A3B8; font-size: 14px; line-height: 1.6;">Use the 6-digit verification code below to complete your registration for <strong>PrimeTeam</strong>:</p>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <div style="display: inline-block; background: #201833; border: 1.5px solid #8B5CF6; border-radius: 14px; padding: 14px 24px;">
+                            <span style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #A78BFA;">${otp}</span>
+                        </div>
+                        <p style="color: #94A3B8; font-size: 13px; margin-top: 14px;">⏱️ Expires in <strong style="color: #F3F4F6;">5 minutes</strong></p>
+                    </div>
+                </div>
+            </div>
+        `
+
+        await sendEmail({
+            to: normalizedEmail,
+            subject: 'PrimeTeam - Complete Your Registration (Verification Code)',
+            html: emailHtml,
+            text: `Your PrimeTeam verification code is: ${otp}. Valid for 5 minutes.`
+        })
+
+        res.json({ message: 'A 6-digit verification code has been sent to your email.' })
+    } catch (err) {
+        next(err)
+    }
+})
+
+// POST /api/auth/verify-registration-otp
+router.post('/verify-registration-otp', async (req, res, next) => {
+    try {
+        const { email, otp } = req.body
+
+        if (!email || !otp) {
+            const err = new Error('Email and verification code are required')
+            err.status = 400
+            return next(err)
+        }
+
+        const normalizedEmail = email.toLowerCase().trim()
+        const pendingReg = await RegistrationOtp.findOne({ email: normalizedEmail })
+
+        if (!pendingReg) {
+            const err = new Error('No pending registration found. Please request a new code.')
+            err.status = 400
+            return next(err)
+        }
+
+        if (pendingReg.otp !== otp.trim() || new Date() > pendingReg.otpExpires) {
+            const err = new Error('Invalid or expired verification code')
+            err.status = 400
+            return next(err)
+        }
+
+        // Create actual User record
+        const user = await User.create({
+            username: pendingReg.username,
+            email: pendingReg.email,
+            passwordHash: pendingReg.passwordHash
+        })
+
+        // Cleanup pending record
+        await RegistrationOtp.deleteOne({ _id: pendingReg._id })
+
+        // Generate JWT Token
+        const token = jwt.sign(
+            { id: user._id.toString(), username: user.username },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        )
+
+        res.status(201).json({
+            token,
+            user: {
+                id: user._id.toString(),
+                username: user.username,
+                email: user.email,
+                name: user.name,
+                avatar: user.avatar
+            }
+        })
+    } catch (err) {
+        next(err)
+    }
+})
+
+//------------------------------------------------- Passwordless Login OTP Flow --------------------------------------------------------
+// POST /api/auth/send-login-otp
+router.post('/send-login-otp', async (req, res, next) => {
+    try {
+        const { identifier } = req.body
+
+        if (!identifier || !identifier.trim()) {
+            const err = new Error('Email or username is required')
+            err.status = 400
+            return next(err)
+        }
+
+        const cleanId = identifier.trim()
+        const user = await User.findOne({
+            $or: [{ email: cleanId.toLowerCase() }, { username: cleanId }]
+        })
+
+        if (!user) {
+            const err = new Error('No account found with this email address or username')
+            err.status = 404
+            return next(err)
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString()
+        const otpExpires = new Date(Date.now() + 5 * 60 * 1000)
+
+        user.loginOtp = otp
+        user.loginOtpExpires = otpExpires
+        await user.save()
+
+        const emailHtml = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background-color: #0D0D12; padding: 40px 24px; color: #FFFFFF; border-radius: 20px;">
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <div style="display: inline-block; width: 52px; height: 52px; background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%); border-radius: 14px; line-height: 52px; color: #ffffff; font-weight: 800; font-size: 24px; margin-bottom: 12px;">P</div>
+                    <h1 style="color: #FFFFFF; margin: 0; font-size: 26px; font-weight: 700;">PrimeTeam</h1>
+                    <p style="color: #94A3B8; font-size: 13px; margin-top: 4px; font-weight: 500; text-transform: uppercase;">One-Time Sign In Code</p>
+                </div>
+                <div style="background-color: #161622; border: 1px solid #28283A; border-radius: 16px; padding: 32px 28px;">
+                    <p style="color: #F1F5F9; font-size: 16px; font-weight: 600; margin-top: 0;">Hello ${user.name || user.username},</p>
+                    <p style="color: #94A3B8; font-size: 14px; line-height: 1.6;">Use the 6-digit sign-in code below to log in to your <strong>PrimeTeam</strong> account:</p>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <div style="display: inline-block; background: #201833; border: 1.5px solid #8B5CF6; border-radius: 14px; padding: 14px 24px;">
+                            <span style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #A78BFA;">${otp}</span>
+                        </div>
+                        <p style="color: #94A3B8; font-size: 13px; margin-top: 14px;">⏱️ Valid for <strong style="color: #F3F4F6;">5 minutes</strong></p>
+                    </div>
+                </div>
+            </div>
+        `
+
+        await sendEmail({
+            to: user.email,
+            subject: 'PrimeTeam - Your Sign-In Code',
+            html: emailHtml,
+            text: `Your PrimeTeam sign-in OTP code is: ${otp}. Valid for 5 minutes.`
+        })
+
+        res.json({ message: `A 6-digit login code has been sent to ${user.email}` })
+    } catch (err) {
+        next(err)
+    }
+})
+
+// POST /api/auth/verify-login-otp
+router.post('/verify-login-otp', async (req, res, next) => {
+    try {
+        const { identifier, otp } = req.body
+
+        if (!identifier || !otp) {
+            const err = new Error('Identifier and verification code are required')
+            err.status = 400
+            return next(err)
+        }
+
+        const cleanId = identifier.trim()
+        const user = await User.findOne({
+            $or: [{ email: cleanId.toLowerCase() }, { username: cleanId }]
+        })
+
+        if (!user) {
+            const err = new Error('Invalid login attempt')
+            err.status = 401
+            return next(err)
+        }
+
+        if (!user.loginOtp || user.loginOtp !== otp.trim() || new Date() > user.loginOtpExpires) {
+            const err = new Error('Invalid or expired sign-in code')
+            err.status = 401
+            return next(err)
+        }
+
+        // Clear login OTP
+        user.loginOtp = null
+        user.loginOtpExpires = null
+        await user.save()
+
+        const token = jwt.sign(
+            { id: user._id.toString(), username: user.username },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        )
+
+        res.json({
+            token,
+            user: {
+                id: user._id.toString(),
+                username: user.username,
+                email: user.email,
+                name: user.name,
+                avatar: user.avatar
+            }
+        })
+    } catch (err) {
+        next(err)
+    }
+})
+
+//------------------------------------------------- Primary Email Change OTP Flow --------------------------------------------------------
+// POST /api/auth/request-email-change-otp
+router.post('/request-email-change-otp', authenticate, async (req, res, next) => {
+    try {
+        const { newEmail } = req.body
+
+        if (!newEmail || !newEmail.trim()) {
+            const err = new Error('New email address is required')
+            err.status = 400
+            return next(err)
+        }
+
+        const normalizedNewEmail = newEmail.toLowerCase().trim()
+        const user = await User.findById(req.user.id)
+
+        if (!user) {
+            const err = new Error('User not found')
+            err.status = 404
+            return next(err)
+        }
+
+        if (user.email === normalizedNewEmail) {
+            const err = new Error('This is already your current primary email address')
+            err.status = 400
+            return next(err)
+        }
+
+        const existing = await User.findOne({ email: normalizedNewEmail })
+        if (existing) {
+            const err = new Error('This email address is already in use by another account')
+            err.status = 400
+            return next(err)
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString()
+        const otpExpires = new Date(Date.now() + 5 * 60 * 1000)
+
+        user.pendingNewEmail = normalizedNewEmail
+        user.emailChangeOtp = otp
+        user.emailChangeOtpExpires = otpExpires
+        await user.save()
+
+        const emailHtml = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background-color: #0D0D12; padding: 40px 24px; color: #FFFFFF; border-radius: 20px;">
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <div style="display: inline-block; width: 52px; height: 52px; background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%); border-radius: 14px; line-height: 52px; color: #ffffff; font-weight: 800; font-size: 24px; margin-bottom: 12px;">P</div>
+                    <h1 style="color: #FFFFFF; margin: 0; font-size: 26px; font-weight: 700;">PrimeTeam</h1>
+                    <p style="color: #94A3B8; font-size: 13px; margin-top: 4px; font-weight: 500; text-transform: uppercase;">Primary Email Change Verification</p>
+                </div>
+                <div style="background-color: #161622; border: 1px solid #28283A; border-radius: 16px; padding: 32px 28px;">
+                    <p style="color: #F1F5F9; font-size: 16px; font-weight: 600; margin-top: 0;">Hello ${user.name || user.username},</p>
+                    <p style="color: #94A3B8; font-size: 14px; line-height: 1.6;">You requested to change your primary email address to <strong>${normalizedNewEmail}</strong>. Use the 6-digit verification code below to confirm this change:</p>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <div style="display: inline-block; background: #201833; border: 1.5px solid #8B5CF6; border-radius: 14px; padding: 14px 24px;">
+                            <span style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #A78BFA;">${otp}</span>
+                        </div>
+                        <p style="color: #94A3B8; font-size: 13px; margin-top: 14px;">⏱️ Valid for <strong style="color: #F3F4F6;">5 minutes</strong></p>
+                    </div>
+                </div>
+            </div>
+        `
+
+        await sendEmail({
+            to: normalizedNewEmail,
+            subject: 'PrimeTeam - Verify Your New Email Address',
+            html: emailHtml,
+            text: `Your PrimeTeam email change verification code is: ${otp}. Valid for 5 minutes.`
+        })
+
+        res.json({ message: `A 6-digit verification code has been sent to ${normalizedNewEmail}` })
+    } catch (err) {
+        next(err)
+    }
+})
+
+// POST /api/auth/verify-email-change-otp
+router.post('/verify-email-change-otp', authenticate, async (req, res, next) => {
+    try {
+        const { newEmail, otp } = req.body
+
+        if (!newEmail || !otp) {
+            const err = new Error('New email and verification code are required')
+            err.status = 400
+            return next(err)
+        }
+
+        const normalizedNewEmail = newEmail.toLowerCase().trim()
+        const user = await User.findById(req.user.id)
+
+        if (!user) {
+            const err = new Error('User not found')
+            err.status = 404
+            return next(err)
+        }
+
+        if (
+            !user.pendingNewEmail ||
+            user.pendingNewEmail !== normalizedNewEmail ||
+            !user.emailChangeOtp ||
+            user.emailChangeOtp !== otp.trim() ||
+            new Date() > user.emailChangeOtpExpires
+        ) {
+            const err = new Error('Invalid or expired verification code')
+            err.status = 400
+            return next(err)
+        }
+
+        // Apply new email and clear OTP fields
+        user.email = user.pendingNewEmail
+        user.pendingNewEmail = null
+        user.emailChangeOtp = null
+        user.emailChangeOtpExpires = null
+        await user.save()
+
+        res.json({
+            message: 'Primary email address updated successfully!',
+            user: {
+                id: user._id,
+                _id: user._id,
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                avatar: user.avatar,
+                googleId: user.googleId,
+                hasPassword: !!user.passwordHash,
+                createdAt: user.createdAt
+            }
+        })
     } catch (err) {
         next(err)
     }

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Navbar from '../components/layout/Navbar'
 import { useAuth } from '../context/AuthContext'
-import { updateProfile, changePassword } from '../api'
+import { updateProfile, changePassword, requestEmailChangeOtp, verifyEmailChangeOtp } from '../api'
 import { BOT_SEEDS, getDiceBearAvatar } from '../utils/avatars'
 
 function SettingsPage() {
@@ -17,6 +17,15 @@ function SettingsPage() {
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileMsg, setProfileMsg] = useState({ type: '', text: '' })
 
+  // Email Change State (OTP Verified)
+  const [showEmailChangeModal, setShowEmailChangeModal] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [emailOtpStep, setEmailOtpStep] = useState('request') // 'request' | 'verify'
+  const [emailOtp, setEmailOtp] = useState('')
+  const [emailChangeLoading, setEmailChangeLoading] = useState(false)
+  const [emailChangeMsg, setEmailChangeMsg] = useState({ type: '', text: '' })
+  const [resendCooldown, setResendCooldown] = useState(0)
+
   // Security Form State
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -25,6 +34,97 @@ function SettingsPage() {
   const [securityMsg, setSecurityMsg] = useState({ type: '', text: '' })
 
   const currentAvatarUri = getDiceBearAvatar(selectedAvatar || user?.username || 'Gizmo')
+
+  useEffect(() => {
+    let timer
+    if (resendCooldown > 0) {
+      timer = setInterval(() => setResendCooldown(prev => prev - 1), 1000)
+    }
+    return () => clearInterval(timer)
+  }, [resendCooldown])
+
+  // Request Email Change OTP
+  const handleRequestEmailOtp = async (e) => {
+    e.preventDefault()
+    setEmailChangeMsg({ type: '', text: '' })
+
+    if (!newEmail.trim()) {
+      setEmailChangeMsg({ type: 'error', text: 'Please enter a valid new email address.' })
+      return
+    }
+
+    if (newEmail.trim().toLowerCase() === user?.email?.toLowerCase()) {
+      setEmailChangeMsg({ type: 'error', text: 'New email address must be different from your current email.' })
+      return
+    }
+
+    setEmailChangeLoading(true)
+    try {
+      const res = await requestEmailChangeOtp({ newEmail: newEmail.trim() })
+      setEmailOtpStep('verify')
+      setEmailChangeMsg({ type: 'success', text: res.data.message || 'Verification OTP sent to your new email!' })
+      setResendCooldown(30)
+    } catch (err) {
+      setEmailChangeMsg({
+        type: 'error',
+        text: err.response?.data?.error || 'Failed to send OTP to new email address.'
+      })
+    } finally {
+      setEmailChangeLoading(false)
+    }
+  }
+
+  // Resend Email Change OTP
+  const handleResendEmailOtp = async () => {
+    if (resendCooldown > 0) return
+    setEmailChangeMsg({ type: '', text: '' })
+    setEmailChangeLoading(true)
+
+    try {
+      const res = await requestEmailChangeOtp({ newEmail: newEmail.trim() })
+      setEmailChangeMsg({ type: 'success', text: res.data.message || 'New OTP sent to your new email!' })
+      setResendCooldown(30)
+    } catch (err) {
+      setEmailChangeMsg({
+        type: 'error',
+        text: err.response?.data?.error || 'Failed to resend OTP.'
+      })
+    } finally {
+      setEmailChangeLoading(false)
+    }
+  }
+
+  // Verify Email Change OTP & Apply New Primary Email
+  const handleVerifyEmailOtp = async (e) => {
+    e.preventDefault()
+    setEmailChangeMsg({ type: '', text: '' })
+
+    if (!emailOtp.trim() || emailOtp.trim().length !== 6) {
+      setEmailChangeMsg({ type: 'error', text: 'Please enter the 6-digit verification code.' })
+      return
+    }
+
+    setEmailChangeLoading(true)
+    try {
+      const res = await verifyEmailChangeOtp({
+        newEmail: newEmail.trim(),
+        otp: emailOtp.trim()
+      })
+      updateUser(res.data.user)
+      setProfileMsg({ type: 'success', text: 'Primary email address updated successfully!' })
+      setShowEmailChangeModal(false)
+      setNewEmail('')
+      setEmailOtp('')
+      setEmailOtpStep('request')
+    } catch (err) {
+      setEmailChangeMsg({
+        type: 'error',
+        text: err.response?.data?.error || 'Invalid or expired OTP code.'
+      })
+    } finally {
+      setEmailChangeLoading(false)
+    }
+  }
 
   // Handle Profile Update Submit
   const handleProfileSubmit = async (e) => {
@@ -241,17 +341,34 @@ function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Primary Email Address
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEmailChangeModal(true)
+                      setEmailOtpStep('request')
+                      setEmailChangeMsg({ type: '', text: '' })
+                      setNewEmail('')
+                      setEmailOtp('')
+                    }}
+                    className="text-xs font-semibold text-purple-400 hover:text-purple-300 hover:underline cursor-pointer transition-colors"
+                  >
+                    ✏️ Change Primary Email
+                  </button>
+                </div>
+                <div className="relative flex items-center">
                   <input
                     type="email"
                     value={user?.email || ''}
                     disabled
-                    className="w-full bg-[#0B0B0E] border border-[#22222E] rounded-xl px-4 py-3 text-sm text-gray-400 cursor-not-allowed font-mono opacity-80"
+                    className="w-full bg-[#0B0B0E] border border-[#22222E] rounded-xl px-4 py-3 text-sm text-gray-300 cursor-not-allowed font-mono"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔒 Primary Email</span>
+                  <span className="absolute right-4 text-xs font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    Verified ✓
+                  </span>
                 </div>
               </div>
 
@@ -265,6 +382,126 @@ function SettingsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Email Change OTP Modal */}
+        {showEmailChangeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+            <div className="bg-[#1C1C24] border border-[#2A2A35] rounded-2xl w-full max-w-md p-6 shadow-2xl text-white flex flex-col gap-4 relative">
+              <button
+                type="button"
+                onClick={() => setShowEmailChangeModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold transition-colors"
+              >
+                ✕
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400 font-bold text-lg">
+                  ✉️
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">Update Primary Email</h3>
+                  <p className="text-xs text-gray-400">Requires verification via OTP sent to your new email</p>
+                </div>
+              </div>
+
+              {emailChangeMsg.text && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-medium border ${
+                    emailChangeMsg.type === 'success'
+                      ? 'bg-purple-500/10 border-purple-500/30 text-purple-300'
+                      : 'bg-red-500/10 border-red-500/30 text-red-400'
+                  }`}
+                >
+                  {emailChangeMsg.text}
+                </div>
+              )}
+
+              {emailOtpStep === 'request' ? (
+                <form onSubmit={handleRequestEmailOtp} className="flex flex-col gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">
+                      New Primary Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="newemail@example.com"
+                      required
+                      className="w-full bg-[#0F0F14] border border-[#2A2A38] focus:border-purple-500 rounded-xl px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailChangeModal(false)}
+                      className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium text-xs transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={emailChangeLoading}
+                      className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 font-semibold text-xs text-white transition-all shadow-lg shadow-purple-600/30 cursor-pointer disabled:opacity-50"
+                    >
+                      {emailChangeLoading ? 'Sending OTP...' : 'Send Verification OTP'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyEmailOtp} className="flex flex-col gap-4">
+                  <div className="bg-[#121218] border border-[#282838] rounded-xl p-3 text-center">
+                    <p className="text-xs text-gray-400">Enter the 6-digit code sent to</p>
+                    <p className="text-sm font-bold text-white mt-0.5 truncate">{newEmail}</p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">
+                      6-Digit Verification Code
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={emailOtp}
+                      onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      required
+                      className="w-full text-center text-2xl font-mono tracking-widest bg-[#0F0F14] border border-purple-500/50 focus:border-purple-500 rounded-xl px-4 py-3 text-white outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <button
+                      type="button"
+                      onClick={() => { setEmailOtpStep('request'); setEmailChangeMsg({ type: '', text: '' }) }}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      ← Change Email
+                    </button>
+                    <button
+                      type="button"
+                      disabled={resendCooldown > 0 || emailChangeLoading}
+                      onClick={handleResendEmailOtp}
+                      className="text-purple-400 hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+                    >
+                      {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend Code'}
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={emailChangeLoading || emailOtp.length !== 6}
+                    className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 font-semibold text-xs text-white transition-all shadow-lg shadow-purple-600/30 cursor-pointer disabled:opacity-50"
+                  >
+                    {emailChangeLoading ? 'Verifying & Updating...' : 'Confirm & Update Email'}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         )}
 

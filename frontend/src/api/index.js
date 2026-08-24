@@ -28,12 +28,18 @@ api.interceptors.response.use(
 
 //---------- Auth ---------------
 export const register = (data) => api.post('/auth/register', data)
+export const sendRegistrationOtp = (data) => api.post('/auth/register-otp', data)
+export const verifyRegistrationOtp = (data) => api.post('/auth/verify-registration-otp', data)
 export const login = (data) => api.post('/auth/login', data)
+export const sendLoginOtp = (data) => api.post('/auth/send-login-otp', data)
+export const verifyLoginOtp = (data) => api.post('/auth/verify-login-otp', data)
 export const googleLogin = (data) => api.post('/auth/google', data)
 export const forgotPassword = (data) => api.post('/auth/forgot-password', data)
 export const verifyOtp = (data) => api.post('/auth/verify-otp', data)
 export const resetPassword = (data) => api.post('/auth/reset-password', data)
 export const updateProfile = (data) => api.put('/auth/profile', data)
+export const requestEmailChangeOtp = (data) => api.post('/auth/request-email-change-otp', data)
+export const verifyEmailChangeOtp = (data) => api.post('/auth/verify-email-change-otp', data)
 export const changePassword = (data) => api.put('/auth/change-password', data)
 
 // ---- boards ----

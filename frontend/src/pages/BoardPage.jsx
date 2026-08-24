@@ -61,6 +61,8 @@ function BoardPage() {
   // Editing card modal/inline state
   const [editingCard, setEditingCard] = useState(null)
   const [editCardTitle, setEditCardTitle] = useState('')
+  const [cardToDelete, setCardToDelete] = useState(null)
+  const [isDeletingCard, setIsDeletingCard] = useState(false)
 
   // Filter states
   const [filterMemberId, setFilterMemberId] = useState(null)
@@ -563,7 +565,7 @@ function BoardPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleDeleteCard(card._id)
+                                    setCardToDelete({ _id: card._id, title: card.title })
                                   }}
                                   className="text-gray-400 hover:text-red-400 p-0.5"
                                   title="Delete card"
@@ -731,11 +733,12 @@ function BoardPage() {
         </div>
       )}
 
-      {/* Card Detail Modal (Description, Labels, Due Date, Checklist) */}
+      {/* Card Detail Modal (Description, Labels, Due Date, Checklist, Attachments, Comments) */}
       {editingCard && (
         <CardDetailModal
           card={editingCard}
           listTitle={editingCard.listTitle}
+          boardLists={board?.lists}
           boardMembers={board?.members}
           isViewer={isViewer}
           onClose={() => setEditingCard(null)}
@@ -743,8 +746,73 @@ function BoardPage() {
             fetchBoardData()
             setEditingCard((prev) => (prev ? { ...prev, ...updatedCard } : null))
           }}
+          onMoveCardToList={async (targetListId, targetListTitle) => {
+            try {
+              await moveCard(editingCard._id, { newListId: targetListId })
+              fetchBoardData()
+              setEditingCard((prev) => (prev ? { ...prev, listId: targetListId, listTitle: targetListTitle } : null))
+            } catch (err) {
+              console.error('Error moving card list:', err)
+            }
+          }}
+          onDeleteCard={async (cardId) => {
+            try {
+              await deleteCard(cardId)
+              fetchBoardData()
+              setEditingCard(null)
+            } catch (err) {
+              console.error('Error deleting card:', err)
+            }
+          }}
         />
       )}
+      {/* Delete Card Confirmation Modal for Board View */}
+      {cardToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-[#1A1A26] border border-[#3A3A4D] rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+            
+            <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center mx-auto">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white">Delete Card?</h3>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Are you sure you want to delete <span className="text-white font-semibold">"{cardToDelete.title}"</span>? All checklist subtasks, link attachments, comments, and history will be permanently lost.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setCardToDelete(null)}
+                className="flex-1 py-2 rounded-xl bg-[#252533] hover:bg-[#2F2F40] text-gray-300 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingCard}
+                onClick={async () => {
+                  setIsDeletingCard(true)
+                  await handleDeleteCard(cardToDelete._id)
+                  setIsDeletingCard(false)
+                  setCardToDelete(null)
+                }}
+                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50 shadow"
+              >
+                {isDeletingCard ? 'Deleting...' : 'Delete Card'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* Edit List Modal (Name & Serial Number Order) */}
       {listToEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn select-none">

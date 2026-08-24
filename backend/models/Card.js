@@ -39,10 +39,28 @@ const cardSchema = new mongoose.Schema({
       completed: { type: Boolean, default: false }
     }
   ],
+  checklists: [
+    {
+      title: { type: String, default: 'Checklist' },
+      items: [
+        {
+          title: { type: String, required: true },
+          completed: { type: Boolean, default: false }
+        }
+      ]
+    }
+  ],
   assignedMembers: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
+    }
+  ],
+  attachments: [
+    {
+      title: { type: String, default: '' },
+      url: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now }
     }
   ]
 }, { timestamps: true })

@@ -45,11 +45,12 @@ router.post('/:listId/cards', authenticate, authorizeList, authorizeBoardRole(['
 // PATCH /api/cards/:cardId
 router.patch('/:cardId', authenticate, authorizeCard, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
   try {
-    const { title, description, labels, dueDate, checklist, assignedMembers } = req.body
+    const { title, description, completed, labels, dueDate, checklist, assignedMembers } = req.body
 
     const updates = {}
     if (title !== undefined)           updates.title           = title
     if (description !== undefined)     updates.description     = description
+    if (completed !== undefined)       updates.completed       = completed
     if (labels !== undefined)          updates.labels          = labels
     if (dueDate !== undefined)         updates.dueDate         = dueDate
     if (checklist !== undefined)       updates.checklist       = checklist

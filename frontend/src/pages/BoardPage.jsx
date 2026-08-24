@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   getBoard,
@@ -18,6 +18,18 @@ import BoardNavbar from '../components/layout/BoardNavbar'
 import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
 import CardDetailModal from '../components/board/CardDetailModal'
+
+// Helper to check if a list title represents a Done/Finished list
+const isDoneList = (listTitle) => {
+  if (!listTitle) return false
+  const title = listTitle.toLowerCase()
+  return (
+    title.includes('done') ||
+    title.includes('finish') ||
+    title.includes('completed') ||
+    title.includes('complete')
+  )
+}
 
 function BoardPage() {
   const { boardId } = useParams()
@@ -289,6 +301,39 @@ function BoardPage() {
     })
   }
 
+  const pendingCardSyncTimers = useRef({})
+
+  const handleToggleCompleteCard = (cardId, currentStatus) => {
+    const nextStatus = !currentStatus
+    setBoard((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        lists: prev.lists.map((list) => ({
+          ...list,
+          cards: list.cards.map((c) => (c._id === cardId ? { ...c, completed: nextStatus } : c))
+        }))
+      }
+    })
+
+    // Clear previous pending timer if user toggled again within 3s
+    if (pendingCardSyncTimers.current[cardId]) {
+      clearTimeout(pendingCardSyncTimers.current[cardId])
+    }
+
+    // Debounce DB write by 3 seconds (No Undo popup, clean board UI)
+    pendingCardSyncTimers.current[cardId] = setTimeout(async () => {
+      try {
+        await updateCard(cardId, { completed: nextStatus })
+      } catch (err) {
+        console.error('Error updating card completion:', err)
+        fetchBoardData()
+      } finally {
+        delete pendingCardSyncTimers.current[cardId]
+      }
+    }, 3000)
+  }
+
   // Fallback default gradient
   const boardBg = board?.background || 'linear-gradient(135deg, #8B3A1C 0%, #E66820 40%, #1D1D2B 100%)'
 
@@ -324,7 +369,14 @@ function BoardPage() {
       {/* Content Body */}
       {activeTab === 'planner' ? (
         <div className="relative z-10 flex-1">
-          <PlannerView />
+          <PlannerView
+            onOpenBoard={(targetBoardId) => {
+              setActiveTab('board')
+              if (targetBoardId !== boardId) {
+                navigate(`/board/${targetBoardId}`)
+              }
+            }}
+          />
         </div>
       ) : loading ? (
         <div className="flex-1 flex items-center justify-center relative z-10">
@@ -479,11 +531,35 @@ function BoardPage() {
                             </div>
                           )}
 
-                          {/* Card Title & Hover Delete Action */}
-                          <div className="flex justify-between items-start">
-                            <span className="font-medium text-gray-200 leading-snug">{card.title}</span>
+                          {/* Card Title & Quick Complete Action */}
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex items-start gap-2 min-w-0 flex-1">
+                              {!isDoneList(list.title) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleToggleCompleteCard(card._id, card.completed)
+                                  }}
+                                  className={`mt-0.5 shrink-0 p-0.5 rounded border transition-all ${
+                                    card.completed
+                                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                                      : 'border-white/20 text-gray-500 hover:text-white hover:border-gray-400'
+                                  }`}
+                                  title={card.completed ? 'Mark as incomplete' : 'Mark as completed'}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                  </svg>
+                                </button>
+                              )}
+                              <span className={`font-medium leading-snug break-words ${card.completed || isDoneList(list.title) ? 'line-through text-gray-400' : 'text-gray-200'}`}>
+                                {card.title}
+                              </span>
+                            </div>
+
                             {!isViewer && (
-                              <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                              <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -519,12 +595,14 @@ function BoardPage() {
                               {/* Assigned Member Avatars */}
                               {hasAssigned && (
                                 <div className="flex items-center -space-x-1.5 overflow-hidden ml-auto">
-                                  {card.assignedMembers.map((m, idx) => {
-                                    const displayName = m.name || m.username || 'User'
-                                    const avatarUri = getDiceBearAvatar(m.avatar || displayName)
+                                  {(card.assignedMembers || []).filter(Boolean).map((m, idx) => {
+                                    const displayName = (typeof m === 'object' ? (m.name || m.username) : null) || 'User'
+                                    const avatarSeed = (typeof m === 'object' ? (m.avatar || displayName) : displayName)
+                                    const avatarUri = getDiceBearAvatar(avatarSeed) || ''
+                                    const memberKey = (typeof m === 'object' ? (m._id || m.id) : m) || idx
                                     return (
                                       <div
-                                        key={m._id || idx}
+                                        key={memberKey}
                                         title={`Assigned to ${displayName}`}
                                         className="w-5 h-5 rounded-full bg-[#13131A] border border-[#22222B] flex items-center justify-center p-0.5 shadow-sm overflow-hidden"
                                       >

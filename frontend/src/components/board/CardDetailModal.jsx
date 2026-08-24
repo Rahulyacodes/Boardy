@@ -1,5 +1,5 @@
 // src/components/board/CardDetailModal.jsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { updateCard, getCardComments, addCardComment, deleteCardComment } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { getDiceBearAvatar } from '../../utils/avatars'
@@ -18,10 +18,10 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
 
   const [title, setTitle] = useState(card?.title || '')
   const [description, setDescription] = useState(card?.description || '')
-  const [labels, setLabels] = useState(card?.labels || [])
+  const [labels, setLabels] = useState(Array.isArray(card?.labels) ? card.labels : [])
   const [dueDate, setDueDate] = useState(card?.dueDate || '')
-  const [checklist, setChecklist] = useState(card?.checklist || [])
-  const [assignedMembers, setAssignedMembers] = useState(card?.assignedMembers || [])
+  const [checklist, setChecklist] = useState(Array.isArray(card?.checklist) ? card.checklist : [])
+  const [assignedMembers, setAssignedMembers] = useState(Array.isArray(card?.assignedMembers) ? card.assignedMembers : [])
   const [newCheckitemTitle, setNewCheckitemTitle] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -34,7 +34,7 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
     if (!card?._id) return
     try {
       const res = await getCardComments(card._id)
-      setComments(res.data || [])
+      setComments(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
       console.error('Error fetching comments:', err)
     }
@@ -44,13 +44,48 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
     fetchComments()
   }, [card?._id])
 
+  useEffect(() => {
+    if (card) {
+      setTitle(card.title || '')
+      setDescription(card.description || '')
+      setLabels(Array.isArray(card.labels) ? card.labels : [])
+      setDueDate(card.dueDate || '')
+      setChecklist(Array.isArray(card.checklist) ? card.checklist : [])
+      setAssignedMembers(Array.isArray(card.assignedMembers) ? card.assignedMembers : [])
+    }
+  }, [card])
+
+  const handleSaveAll = async (overrideData = {}) => {
+    if (!card?._id) return
+    setSaving(true)
+    const updatePayload = {
+      title,
+      description,
+      labels: (labels || []).filter(Boolean),
+      dueDate,
+      checklist: (checklist || []).filter(Boolean),
+      assignedMembers: (assignedMembers || []).filter(Boolean).map((a) => (typeof a === 'object' ? a._id || a.id : a)),
+      ...overrideData
+    }
+    try {
+      const res = await updateCard(card._id, updatePayload)
+      if (onCardUpdate && res?.data) onCardUpdate(res.data)
+    } catch (err) {
+      console.error('Error updating card:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleAddComment = async (e) => {
     e.preventDefault()
-    if (!newCommentText.trim()) return
+    if (!newCommentText.trim() || !card?._id) return
     setCommentLoading(true)
     try {
       const res = await addCardComment(card._id, newCommentText.trim())
-      setComments((prev) => [...prev, res.data])
+      if (res?.data) {
+        setComments((prev) => [...prev, res.data])
+      }
       setNewCommentText('')
     } catch (err) {
       console.error('Error posting comment:', err)
@@ -60,52 +95,24 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
   }
 
   const handleDeleteComment = async (commentId) => {
+    if (!commentId) return
     try {
       await deleteCardComment(commentId)
-      setComments((prev) => prev.filter((c) => c._id !== commentId))
+      setComments((prev) => prev.filter((c) => c && c._id !== commentId))
     } catch (err) {
       console.error('Error deleting comment:', err)
     }
   }
 
-  useEffect(() => {
-    setTitle(card?.title || '')
-    setDescription(card?.description || '')
-    setLabels(card?.labels || [])
-    setDueDate(card?.dueDate || '')
-    setChecklist(card?.checklist || [])
-    setAssignedMembers(card?.assignedMembers || [])
-  }, [card])
-
-  const handleSaveAll = async (overrideData = {}) => {
-    setSaving(true)
-    const updatePayload = {
-      title,
-      description,
-      labels,
-      dueDate,
-      checklist,
-      assignedMembers: assignedMembers.map(a => a._id || a),
-      ...overrideData
-    }
-    try {
-      const res = await updateCard(card._id, updatePayload)
-      if (onCardUpdate) onCardUpdate(res.data)
-    } catch (err) {
-      console.error('Error updating card:', err)
-    } finally {
-      setSaving(false)
-    }
-  }
-
   // Label toggling
   const handleToggleLabel = (colorObj) => {
-    const exists = labels.some((l) => l.color === colorObj.color)
+    const safeLabels = (labels || []).filter(Boolean)
+    const exists = safeLabels.some((l) => l && l.color === colorObj.color)
     let updated
     if (exists) {
-      updated = labels.filter((l) => l.color !== colorObj.color)
+      updated = safeLabels.filter((l) => l && l.color !== colorObj.color)
     } else {
-      updated = [...labels, { color: colorObj.color, name: colorObj.name }]
+      updated = [...safeLabels, { color: colorObj.color, name: colorObj.name }]
     }
     setLabels(updated)
     handleSaveAll({ labels: updated })
@@ -116,28 +123,63 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
     e.preventDefault()
     if (!newCheckitemTitle.trim()) return
     const newItem = { title: newCheckitemTitle.trim(), completed: false }
-    const updated = [...checklist, newItem]
+    const updated = [...(checklist || []).filter(Boolean), newItem]
     setChecklist(updated)
     setNewCheckitemTitle('')
     handleSaveAll({ checklist: updated })
   }
 
   const handleToggleCheckitem = (index) => {
-    const updated = checklist.map((item, i) =>
+    const updated = (checklist || []).filter(Boolean).map((item, i) =>
       i === index ? { ...item, completed: !item.completed } : item
     )
     setChecklist(updated)
     handleSaveAll({ checklist: updated })
   }
 
+  const handleDeleteCheckitem = (index) => {
+    const updated = (checklist || []).filter(Boolean).filter((_, i) => i !== index)
+    setChecklist(updated)
+    handleSaveAll({ checklist: updated })
+  }
+
+  // Normalize Board Members Safely
+  const normalizedBoardMembers = useMemo(() => {
+    if (!Array.isArray(boardMembers)) return []
+    return boardMembers
+      .filter(Boolean)
+      .map((m) => {
+        if (typeof m === 'object') {
+          if (m.userId && typeof m.userId === 'object') {
+            return {
+              _id: m.userId._id || m.userId.id,
+              name: m.userId.name || m.userId.username || 'Member',
+              username: m.userId.username || m.userId.name || 'member',
+              avatar: m.userId.avatar
+            }
+          }
+          return {
+            _id: m._id || m.id || m.userId,
+            name: m.name || m.username || 'Member',
+            username: m.username || m.name || 'member',
+            avatar: m.avatar
+          }
+        }
+        return { _id: String(m), name: 'Member', username: 'member' }
+      })
+      .filter((m) => Boolean(m._id))
+  }, [boardMembers])
+
   // Progress metrics
-  const totalCount = checklist.length
-  const completedCount = checklist.filter((c) => c.completed).length
+  const safeChecklist = (checklist || []).filter(Boolean)
+  const totalCount = safeChecklist.length
+  const completedCount = safeChecklist.filter((c) => c && c.completed).length
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn select-none">
       <div className="bg-[#181820] border border-[#2A2A35] w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        
         {/* Modal Header */}
         <div className="p-5 border-b border-[#2A2A35] flex items-start justify-between bg-[#1C1C26]">
           <div className="flex-1 pr-4">
@@ -162,8 +204,9 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
             />
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
           >
             ✕
           </button>
@@ -171,19 +214,20 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
 
         {/* Modal Content Scrollable */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+          
           {/* 1. Labels Section */}
           <div>
             <h4 className="font-bold text-gray-300 uppercase tracking-wider text-[11px] mb-2">Labels</h4>
             <div className="flex flex-wrap gap-2">
               {LABEL_COLORS.map((l) => {
-                const isSelected = labels.some((item) => item.color === l.color)
+                const isSelected = (labels || []).some((item) => item && item.color === l.color)
                 return (
                   <button
                     key={l.color}
                     type="button"
                     disabled={isViewer}
                     onClick={() => handleToggleLabel(l)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer ${
                       isSelected ? 'ring-2 ring-white border-white scale-105' : 'border-transparent opacity-80 hover:opacity-100'
                     }`}
                     style={{ background: l.color, color: '#fff' }}
@@ -202,7 +246,7 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
             <div className="flex items-center gap-3">
               <input
                 type="date"
-                value={dueDate}
+                value={dueDate ? dueDate.split('T')[0] : ''}
                 disabled={isViewer}
                 onChange={(e) => {
                   setDueDate(e.target.value)
@@ -212,11 +256,12 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
               />
               {dueDate && !isViewer && (
                 <button
+                  type="button"
                   onClick={() => {
                     setDueDate('')
                     handleSaveAll({ dueDate: '' })
                   }}
-                  className="text-red-400 hover:underline text-xs font-medium"
+                  className="text-red-400 hover:underline text-xs font-medium cursor-pointer"
                 >
                   Clear date
                 </button>
@@ -227,45 +272,54 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
           {/* 3. Assign Members Section */}
           <div>
             <h4 className="font-bold text-gray-300 uppercase tracking-wider text-[11px] mb-2">Assigned Members</h4>
-            <div className="flex flex-wrap gap-2">
-              {(boardMembers || []).map((m) => {
-                const uObj = m.userId || {}
-                const uId = uObj._id || uObj
-                const displayName = uObj.name || uObj.username || 'User'
-                const isAssigned = assignedMembers.some(
-                  (assigned) => (assigned._id || assigned) === uId
-                )
+            {normalizedBoardMembers.length === 0 ? (
+              <p className="text-gray-500 text-[11px] italic">No members in this board</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {normalizedBoardMembers.map((m) => {
+                  const uId = m._id
+                  const displayName = m.name || m.username || 'User'
+                  const isAssigned = (assignedMembers || []).some((assigned) => {
+                    if (!assigned) return false
+                    const assignedId = typeof assigned === 'object' ? (assigned._id || assigned.id) : assigned
+                    return String(assignedId) === String(uId)
+                  })
 
-                return (
-                  <button
-                    key={uId}
-                    type="button"
-                    disabled={isViewer}
-                    onClick={() => {
-                      let updated
-                      if (isAssigned) {
-                        updated = assignedMembers.filter((a) => (a._id || a) !== uId)
-                      } else {
-                        updated = [...assignedMembers, uObj]
-                      }
-                      setAssignedMembers(updated)
-                      handleSaveAll({ assignedMembers: updated.map((a) => a._id || a) })
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
-                      isAssigned
-                        ? 'bg-purple-600/30 border-purple-500 text-purple-300 shadow-sm scale-105'
-                        : 'bg-[#0F0F14] border-[#2A2A38] text-gray-400 hover:text-white hover:border-gray-500'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
-                      <img src={getDiceBearAvatar(uObj.avatar || displayName)} alt={displayName} className="w-full h-full object-contain rounded-full" />
-                    </div>
-                    <span>{displayName}</span>
-                    {isAssigned && <span className="text-purple-400 font-bold">✓</span>}
-                  </button>
-                )
-              })}
-            </div>
+                  return (
+                    <button
+                      key={uId}
+                      type="button"
+                      disabled={isViewer}
+                      onClick={() => {
+                        let updated
+                        if (isAssigned) {
+                          updated = (assignedMembers || []).filter((a) => {
+                            if (!a) return false
+                            const aId = typeof a === 'object' ? (a._id || a.id) : a
+                            return String(aId) !== String(uId)
+                          })
+                        } else {
+                          updated = [...(assignedMembers || []), m]
+                        }
+                        setAssignedMembers(updated)
+                        handleSaveAll({ assignedMembers: updated.map((a) => (typeof a === 'object' ? a._id || a.id : a)) })
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer ${
+                        isAssigned
+                          ? 'bg-purple-600/30 border-purple-500 text-purple-300 shadow-sm scale-105'
+                          : 'bg-[#0F0F14] border-[#2A2A38] text-gray-400 hover:text-white hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="w-5 h-5 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
+                        <img src={getDiceBearAvatar(m.avatar || displayName) || ''} alt={displayName} className="w-full h-full object-contain rounded-full" />
+                      </div>
+                      <span>{displayName}</span>
+                      {isAssigned && <span className="text-purple-400 font-bold">✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* 4. Description Section */}
@@ -305,7 +359,7 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
 
             {/* Checklist Items */}
             <div className="space-y-2 mb-3">
-              {checklist.map((item, index) => (
+              {safeChecklist.map((item, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between bg-[#0F0F14] border border-[#2A2A38] rounded-xl px-3 py-2 hover:border-purple-500/40 transition-colors"
@@ -314,7 +368,7 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
                     <input
                       type="checkbox"
                       disabled={isViewer}
-                      checked={item.completed}
+                      checked={Boolean(item.completed)}
                       onChange={() => handleToggleCheckitem(index)}
                       className="w-4 h-4 rounded accent-purple-600 cursor-pointer"
                     />
@@ -324,8 +378,9 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
                   </label>
                   {!isViewer && (
                     <button
+                      type="button"
                       onClick={() => handleDeleteCheckitem(index)}
-                      className="text-gray-500 hover:text-red-400 p-1 text-xs"
+                      className="text-gray-500 hover:text-red-400 p-1 text-xs cursor-pointer"
                     >
                       ✕
                     </button>
@@ -346,7 +401,7 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
                 />
                 <button
                   type="submit"
-                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 font-semibold rounded-xl text-xs text-white transition-colors"
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 font-semibold rounded-xl text-xs text-white transition-colors cursor-pointer"
                 >
                   + Add
                 </button>
@@ -374,7 +429,7 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
                 <button
                   type="submit"
                   disabled={commentLoading || !newCommentText.trim()}
-                  className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 font-semibold rounded-xl text-xs text-white transition-colors"
+                  className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 font-semibold rounded-xl text-xs text-white transition-colors cursor-pointer"
                 >
                   {commentLoading ? 'Posting...' : 'Save Comment'}
                 </button>
@@ -388,16 +443,19 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
 
             {/* Comments Feed */}
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-              {comments.length === 0 ? (
+              {(comments || []).filter(Boolean).length === 0 ? (
                 <p className="text-xs text-gray-500 italic">No comments yet. Start the discussion!</p>
               ) : (
-                comments.map((c) => {
-                  const authorName = c.authorId?.name || c.authorId?.username || 'User'
-                  const authorAvatarUri = getDiceBearAvatar(c.authorId?.avatar || authorName)
-                  const isAuthor = c.authorId?._id === currentUser?.id || c.authorId === currentUser?.id
+                (comments || []).filter(Boolean).map((c) => {
+                  const authorObj = (c.authorId && typeof c.authorId === 'object') ? c.authorId : {}
+                  const authorName = authorObj.name || authorObj.username || 'User'
+                  const authorAvatarUri = getDiceBearAvatar(authorObj.avatar || authorName) || ''
+                  const authorIdVal = authorObj._id || c.authorId
+                  const currentUserIdVal = currentUser?.id || currentUser?._id
+                  const isAuthor = Boolean(authorIdVal && currentUserIdVal && String(authorIdVal) === String(currentUserIdVal))
 
                   return (
-                    <div key={c._id} className="flex items-start gap-2.5 bg-[#0F0F14] border border-[#2A2A38] rounded-xl p-3">
+                    <div key={c._id || Math.random()} className="flex items-start gap-2.5 bg-[#0F0F14] border border-[#2A2A38] rounded-xl p-3">
                       <div className="w-7 h-7 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
                         <img src={authorAvatarUri} alt={authorName} className="w-full h-full object-contain rounded-full" />
                       </div>
@@ -406,12 +464,13 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
                           <span className="font-bold text-xs text-purple-300">{authorName}</span>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-gray-500">
-                              {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                             </span>
-                            {!isViewer && isAuthor && (
+                            {!isViewer && isAuthor && c._id && (
                               <button
+                                type="button"
                                 onClick={() => handleDeleteComment(c._id)}
-                                className="text-gray-500 hover:text-red-400 text-xs"
+                                className="text-gray-500 hover:text-red-400 text-xs cursor-pointer"
                                 title="Delete comment"
                               >
                                 ✕
@@ -435,8 +494,9 @@ function CardDetailModal({ card, listTitle, boardMembers = [], isViewer = false,
             {isViewer ? 'Read-Only Mode' : saving ? 'Saving changes...' : 'All changes saved automatically'}
           </span>
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-xs font-semibold text-white transition-colors"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-xs font-semibold text-white transition-colors cursor-pointer"
           >
             Done
           </button>

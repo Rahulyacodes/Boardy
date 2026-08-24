@@ -10,6 +10,10 @@ const cardSchema = new mongoose.Schema({
     type: String,
     default: ''       
   },
+  completed: {
+    type: Boolean,
+    default: false
+  },
   position: {
     type: Number,
     required: true

@@ -52,7 +52,11 @@ function DashboardPage() {
       <Navbar />
 
       {activeTab === 'planner' ? (
-        <PlannerView />
+        <PlannerView
+          onOpenBoard={(targetBoardId) => {
+            navigate(`/board/${targetBoardId}`)
+          }}
+        />
       ) : (
         <div className="max-w-6xl mx-auto w-full px-6 py-10">
           {/* Header */}

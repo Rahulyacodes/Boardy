@@ -62,6 +62,8 @@ function BoardPage() {
   const [draggedCard, setDraggedCard] = useState(null)
   const [draggedListId, setDraggedListId] = useState(null)
   const [dragOverListId, setDragOverListId] = useState(null)
+  const [dragOverCardId, setDragOverCardId] = useState(null)
+  const [dragOverCardPos, setDragOverCardPos] = useState('below') // 'above' | 'below'
 
   // Viewer role check
   const isOwner = board?.ownerId === user?.id || board?.ownerId?._id === user?.id
@@ -214,10 +216,101 @@ function BoardPage() {
     }
   }
 
+  const handleCardDragOver = (e, cardId) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    const rect = e.currentTarget.getBoundingClientRect()
+    const midY = rect.top + rect.height / 2
+    const pos = e.clientY < midY ? 'above' : 'below'
+
+    if (dragOverCardId !== cardId || dragOverCardPos !== pos) {
+      setDragOverCardId(cardId)
+      setDragOverCardPos(pos)
+    }
+  }
+
+  const handleCardDragLeave = (e, cardId) => {
+    e.stopPropagation()
+    if (dragOverCardId === cardId) {
+      setDragOverCardId(null)
+    }
+  }
+
+  const handleCardDrop = (e, targetCard, targetListId, targetCardIndex) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOverListId(null)
+    setDragOverCardId(null)
+
+    const dataRaw = e.dataTransfer.getData('text/plain')
+    let parsedData = {}
+    if (dataRaw) {
+      try {
+        parsedData = JSON.parse(dataRaw)
+      } catch (err) {}
+    }
+
+    const cardId = draggedCard?.cardId || parsedData.cardId
+    const sourceListId = draggedCard?.sourceListId || parsedData.sourceListId
+
+    if (!cardId) {
+      setDraggedCard(null)
+      return
+    }
+
+    let insertIndex = targetCardIndex
+    if (dragOverCardPos === 'below') {
+      insertIndex += 1
+    }
+
+    setBoard((prevBoard) => {
+      if (!prevBoard) return prevBoard
+
+      let movedCard = null
+      let sourceCards = []
+
+      // 1. Remove card from source list
+      const listsWithCardRemoved = prevBoard.lists.map((list) => {
+        if (list._id === sourceListId) {
+          movedCard = list.cards.find((c) => c._id === cardId)
+          sourceCards = list.cards.filter((c) => c._id !== cardId)
+          return { ...list, cards: sourceCards }
+        }
+        return list
+      })
+
+      if (!movedCard) return prevBoard
+
+      // 2. Insert card at target index in target list
+      return {
+        ...prevBoard,
+        lists: listsWithCardRemoved.map((list) => {
+          if (list._id === targetListId) {
+            const currentCards = list._id === sourceListId ? sourceCards : [...list.cards]
+            const clampedIndex = Math.max(0, Math.min(insertIndex, currentCards.length))
+            const updatedCards = [...currentCards]
+            updatedCards.splice(clampedIndex, 0, { ...movedCard, listId: targetListId })
+            return { ...list, cards: updatedCards }
+          }
+          return list
+        })
+      }
+    })
+
+    setDraggedCard(null)
+
+    moveCard(cardId, { newListId: targetListId, position: insertIndex + 1 }).catch((err) => {
+      console.error('Error syncing card move:', err)
+      fetchBoardData()
+    })
+  }
+
   const handleDrop = (e, targetListId) => {
     e.preventDefault()
     e.stopPropagation()
     setDragOverListId(null)
+    setDragOverCardId(null)
 
     const dataRaw = e.dataTransfer.getData('text/plain')
     let parsedData = {}
@@ -245,14 +338,17 @@ function BoardPage() {
       return
     }
 
-    // Handle Card Move Drop
+    // Handle Card Move to List (Append to bottom of list)
     const cardId = draggedCard?.cardId || parsedData.cardId
     const sourceListId = draggedCard?.sourceListId || parsedData.sourceListId
 
-    if (!cardId || sourceListId === targetListId) {
+    if (!cardId) {
       setDraggedCard(null)
       return
     }
+
+    const targetList = board?.lists?.find((l) => l._id === targetListId)
+    const targetCardsCount = targetList?.cards?.length || 0
 
     // Optimistically update board state
     setBoard((prevBoard) => {
@@ -289,9 +385,9 @@ function BoardPage() {
     setDraggedCard(null)
 
     // Sync card position move to backend API
-    moveCard(cardId, { newListId: targetListId }).catch((err) => {
+    moveCard(cardId, { newListId: targetListId, position: targetCardsCount + 1 }).catch((err) => {
       console.error('Error syncing card move:', err)
-      fetchBoardData() // Revert local state on error
+      fetchBoardData()
     })
   }
 
@@ -492,8 +588,9 @@ function BoardPage() {
 
                   {/* List Cards Container */}
                   <div className="flex-1 overflow-y-auto max-h-[calc(100vh-280px)] space-y-2 pr-0.5 min-h-[40px]">
-                    {filteredCards.map((card) => {
+                    {filteredCards.map((card, cardIndex) => {
                       const isBeingDragged = draggedCard?.cardId === card._id
+                      const isTargetHovered = dragOverCardId === card._id
                       const hasLabels = card.labels && card.labels.length > 0
                       const hasChecklist = card.checklist && card.checklist.length > 0
                       const completedChecklist = hasChecklist ? card.checklist.filter((c) => c.completed).length : 0
@@ -504,14 +601,22 @@ function BoardPage() {
                           key={card._id}
                           draggable={!isViewer}
                           onDragStart={(e) => !isViewer && handleDragStart(e, card, list._id)}
+                          onDragOver={(e) => !isViewer && handleCardDragOver(e, card._id)}
+                          onDragLeave={(e) => !isViewer && handleCardDragLeave(e, card._id)}
+                          onDrop={(e) => !isViewer && handleCardDrop(e, card, list._id, cardIndex)}
                           onDragEnd={() => {
                             setDraggedCard(null)
                             setDragOverListId(null)
+                            setDragOverCardId(null)
                           }}
                           onClick={() => setEditingCard({ ...card, listTitle: list.title })}
                           className={`group relative bg-[#22222B]/90 hover:bg-[#2A2A36] border border-white/10 hover:border-purple-500/40 rounded-xl p-3 text-xs text-gray-100 shadow-md transition-all ${
                             !isViewer ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
-                          } ${isBeingDragged ? 'opacity-30 scale-95 border-dashed border-purple-400' : ''}`}
+                          } ${isBeingDragged ? 'opacity-30 scale-95 border-dashed border-purple-400' : ''} ${
+                            isTargetHovered && dragOverCardPos === 'above' ? 'border-t-2 border-t-purple-400 -translate-y-0.5' : ''
+                          } ${
+                            isTargetHovered && dragOverCardPos === 'below' ? 'border-b-2 border-b-purple-400 translate-y-0.5' : ''
+                          }`}
                         >
                           {/* Mini Color Label Chips */}
                           {hasLabels && (

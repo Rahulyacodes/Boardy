@@ -23,6 +23,7 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
   const [titleText, setTitleText] = useState(board?.title || '')
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [shareTab, setShareTab] = useState('members')
   const [filterOpen, setFilterOpen] = useState(false)
 
   // Share form states
@@ -107,6 +108,7 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
       const res = await inviteMember(board._id, { username: inviteUsername.trim(), role: inviteRole })
       setShareMsg({ text: res.data.message || 'User invited!', type: 'success' })
       setInviteUsername('')
+      setShareTab('invites')
       if (res.data.board && onBoardUpdate) {
         onBoardUpdate(res.data.board)
       } else if (onBoardUpdate) {
@@ -124,10 +126,10 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
   }
 
   const handleRemoveMember = async (memberUserId) => {
-    if (!window.confirm('Remove member from board?')) return
+    if (!window.confirm('Remove member / cancel invitation?')) return
     try {
       const res = await removeMember(board._id, memberUserId)
-      setShareMsg({ text: 'Member removed', type: 'success' })
+      setShareMsg({ text: 'Removed successfully', type: 'success' })
       if (res.data.board && onBoardUpdate) {
         onBoardUpdate(res.data.board)
       } else if (onBoardUpdate) {
@@ -178,6 +180,9 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
     if (b.role === 'owner') return 1
     return 0
   })
+
+  const acceptedMembers = sortedMembers.filter(m => m.status === 'accepted' || !m.status)
+  const pendingMembers = sortedMembers.filter(m => m.status === 'pending')
 
   const isOwner = board?.ownerId === user?.id || rawMembers.some(m => (m.userId?._id || m.userId) === user?.id && m.role === 'owner')
 
@@ -296,9 +301,9 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
           </svg>
         </button>
 
-        {/* Member Avatar Bubbles */}
+        {/* Member Avatar Bubbles (accepted members only) */}
         <div className="flex items-center -space-x-2 overflow-hidden">
-          {sortedMembers.map((m, idx) => {
+          {acceptedMembers.map((m, idx) => {
             const memberObj = m.userId || {}
             const username = memberObj.username || 'User'
             const avatarUri = getDiceBearAvatar(memberObj.avatar || username)
@@ -512,73 +517,159 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
 
             {/* Tabs Header */}
             <div className="flex items-center gap-4 border-b border-[#323342] pb-2 mb-3">
-              <button className="text-xs font-bold text-blue-400 border-b-2 border-blue-500 pb-1">
-                Board members {sortedMembers.length}
+              <button
+                type="button"
+                onClick={() => setShareTab('members')}
+                className={`text-xs font-bold pb-1.5 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  shareTab === 'members' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <span>Board members</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  shareTab === 'members'
+                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    : 'bg-white/10 text-gray-400'
+                }`}>
+                  {acceptedMembers.length}
+                </span>
               </button>
-              <button className="text-xs font-medium text-gray-400 hover:text-gray-200 pb-1">
-                Join requests
+
+              <button
+                type="button"
+                onClick={() => setShareTab('invites')}
+                className={`text-xs font-medium pb-1.5 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  shareTab === 'invites' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <span>Sent Requests</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  pendingMembers.length > 0
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : shareTab === 'invites'
+                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    : 'bg-white/10 text-gray-400'
+                }`}>
+                  {pendingMembers.length}
+                </span>
               </button>
             </div>
 
-            {/* Sequential Board Members List (Owner first) */}
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-              {sortedMembers.map((m, idx) => {
-                const memberObj = m.userId || {}
-                const displayName = memberObj.name || memberObj.username || 'User'
-                const handleUsername = memberObj.username || 'username'
-                const uEmail = memberObj.email || ''
-                const uId = memberObj._id || memberObj
-                const avatarUri = getDiceBearAvatar(memberObj.avatar || handleUsername)
-                const isCurrentUser = (uId === user?.id || uId === user?._id)
+            {/* Tab 1: Board Members List */}
+            {shareTab === 'members' && (
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {acceptedMembers.length === 0 ? (
+                  <div className="py-4 text-center text-gray-400 text-xs">No active members found</div>
+                ) : (
+                  acceptedMembers.map((m, idx) => {
+                    const memberObj = m.userId || {}
+                    const displayName = memberObj.name || memberObj.username || 'User'
+                    const handleUsername = memberObj.username || 'username'
+                    const uEmail = memberObj.email || ''
+                    const uId = memberObj._id || memberObj
+                    const avatarUri = getDiceBearAvatar(memberObj.avatar || handleUsername)
+                    const isCurrentUser = (uId === user?.id || uId === user?._id)
 
-                return (
-                  <div
-                    key={m._id || idx}
-                    className="flex items-center justify-between bg-[#181824] border border-[#323342] rounded-xl px-3 py-2.5"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
-                        <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-white flex items-center gap-1">
-                          <span>{displayName}</span>
-                          {isCurrentUser && <span className="text-gray-400 font-normal">(you)</span>}
-                        </p>
-                        <p className="text-[11px] text-gray-400">
-                          @{handleUsername} {uEmail ? `• ${uEmail}` : ''}
-                        </p>
-                      </div>
-                    </div>
+                    return (
+                      <div
+                        key={m._id || idx}
+                        className="flex items-center justify-between bg-[#181824] border border-[#323342] rounded-xl px-3 py-2.5"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                          <div className="w-8 h-8 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
+                            <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-white flex items-center gap-1 truncate">
+                              <span>{displayName}</span>
+                              {isCurrentUser && <span className="text-gray-400 font-normal">(you)</span>}
+                            </p>
+                            <p className="text-[11px] text-gray-400 truncate">
+                              @{handleUsername} {uEmail ? `• ${uEmail}` : ''}
+                            </p>
+                          </div>
+                        </div>
 
-                    {/* Member Role Dropdown / Badge */}
-                    <div className="flex items-center gap-2">
-                      {m.role === 'owner' ? (
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-300 flex items-center gap-1">
-                          <span>Owner</span>
-                          <span className="text-[10px]">▾</span>
-                        </span>
-                      ) : isOwner ? (
-                        <select
-                          value={m.role}
-                          onChange={(e) => handleRoleChange(uId, e.target.value)}
-                          className="bg-[#22232B] border border-[#323342] text-xs text-gray-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer"
-                        >
-                          <option value="member">Member</option>
-                          <option value="viewer">Viewer</option>
-                          <option value="remove">Remove</option>
-                        </select>
-                      ) : (
-                        <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white/10 text-gray-300 capitalize flex items-center gap-1">
-                          <span>{m.role}</span>
-                          <span className="text-[10px]">▾</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                        {/* Member Role Dropdown / Badge */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {m.role === 'owner' ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-300 flex items-center gap-1">
+                              <span>Owner</span>
+                            </span>
+                          ) : isOwner ? (
+                            <select
+                              value={m.role}
+                              onChange={(e) => handleRoleChange(uId, e.target.value)}
+                              className="bg-[#22232B] border border-[#323342] text-xs text-gray-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer"
+                            >
+                              <option value="member">Member</option>
+                              <option value="viewer">Viewer</option>
+                              <option value="remove">Remove</option>
+                            </select>
+                          ) : (
+                            <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white/10 text-gray-300 capitalize flex items-center gap-1">
+                              <span>{m.role}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: Sent Requests / Pending Invites List */}
+            {shareTab === 'invites' && (
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {pendingMembers.length === 0 ? (
+                  <div className="py-6 text-center text-gray-400 text-xs">No pending requests sent</div>
+                ) : (
+                  pendingMembers.map((m, idx) => {
+                    const memberObj = m.userId || {}
+                    const displayName = memberObj.name || memberObj.username || 'User'
+                    const handleUsername = memberObj.username || 'username'
+                    const uEmail = memberObj.email || ''
+                    const uId = memberObj._id || memberObj
+                    const avatarUri = getDiceBearAvatar(memberObj.avatar || handleUsername)
+
+                    return (
+                      <div
+                        key={m._id || idx}
+                        className="flex items-center justify-between bg-[#181824] border border-[#323342] rounded-xl px-3 py-2.5"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                          <div className="w-8 h-8 rounded-full bg-[#13131A] border border-amber-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
+                            <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-white truncate">{displayName}</p>
+                            <p className="text-[11px] text-gray-400 truncate">
+                              @{handleUsername} {uEmail ? `• ${uEmail}` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 animate-pulse">
+                            Pending ({m.role})
+                          </span>
+                          {isOwner && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMember(uId)}
+                              className="px-2 py-1 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                              title="Cancel / Revoke Invitation"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

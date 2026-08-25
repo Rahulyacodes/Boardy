@@ -94,16 +94,10 @@ router.patch('/:cardId', authenticate, authorizeCard, authorizeBoardRole(['owner
 // PATCH /api/cards/:cardId/move
 router.patch('/:cardId/move', authenticate, authorizeCard, authorizeBoardRole(['owner', 'member']), async (req, res, next) => {
   try {
-    const { newListId } = req.body
+    const { newListId, position } = req.body
 
-    if (!newListId) {
-      const err = new Error('newListId is required')
-      err.status = 400
-      return next(err)
-    }
-
-    // check destination list exists
-    const destinationList = await List.findById(newListId)
+    const targetListId = newListId || req.card.listId
+    const destinationList = await List.findById(targetListId)
     if (!destinationList) {
       const err = new Error('Destination list not found')
       err.status = 404
@@ -117,19 +111,48 @@ router.patch('/:cardId/move', authenticate, authorizeCard, authorizeBoardRole(['
       return next(err)
     }
 
-    // figure out position in destination list
-    const destinationCards = await Card.find({ listId: newListId })
-    const lastPosition     = destinationCards.length > 0
-      ? Math.max(...destinationCards.map(c => c.position))
-      : 0
+    const previousListId = req.card.listId
+    const isSameList = previousListId.toString() === targetListId.toString()
 
-    // update card with new listId and position
-    const updated = await Card.findByIdAndUpdate(
-      req.card._id,
-      { listId: newListId, position: lastPosition + 1 },
-      { new: true }
-    )
+    if (position !== undefined && !isNaN(Number(position))) {
+      const targetPos = Math.max(1, Number(position))
+      req.card.listId = targetListId
+      req.card.position = targetPos
+      await req.card.save()
 
+      // Re-normalize positions of cards in destination list
+      const targetCards = await Card.find({ listId: targetListId }).sort({ position: 1, updatedAt: -1 })
+      let posCounter = 1
+      for (const c of targetCards) {
+        if (c._id.toString() === req.card._id.toString()) continue
+        if (posCounter === targetPos) posCounter++
+        if (c.position !== posCounter) {
+          c.position = posCounter
+          await c.save()
+        }
+        posCounter++
+      }
+
+      // If moved across lists, also re-normalize source list
+      if (!isSameList) {
+        const sourceCards = await Card.find({ listId: previousListId }).sort({ position: 1, updatedAt: -1 })
+        for (let i = 0; i < sourceCards.length; i++) {
+          if (sourceCards[i].position !== i + 1) {
+            sourceCards[i].position = i + 1
+            await sourceCards[i].save()
+          }
+        }
+      }
+    } else {
+      // Fallback: append to bottom of destination list
+      const destinationCards = await Card.find({ listId: targetListId })
+      const lastPosition = destinationCards.length > 0 ? Math.max(...destinationCards.map(c => c.position)) : 0
+      req.card.listId = targetListId
+      req.card.position = lastPosition + 1
+      await req.card.save()
+    }
+
+    const updated = await Card.findById(req.card._id).populate('assignedMembers', 'name username email avatar')
     res.json(updated)
 
   } catch (err) {

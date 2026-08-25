@@ -21,7 +21,7 @@ router.post('/', authenticate, async (req, res, next) => {
         title,
         background: background || 'linear-gradient(135deg, #1E1E24, #2A2A38)',
         ownerId: req.user.id,
-        members: [{userId: req.user.id, role: 'owner'}]
+        members: [{userId: req.user.id, role: 'owner', status: 'accepted'}]
        })
 
         res.status(201).json(board)
@@ -36,12 +36,104 @@ router.post('/', authenticate, async (req, res, next) => {
 router.get('/', authenticate, async (req, res,next) => {
     try{
         const boards = await Board.find({
-            'members.userId': req.user.id
+            members: {
+                $elemMatch: {
+                    userId: req.user.id,
+                    status: { $in: ['accepted', null] }
+                }
+            }
         }).sort({ updatedAt: -1 })        
 
         res.json(boards)
 
     } catch(err){
+        next(err)
+    }
+})
+
+//-------------------------- GET /api/boards/invites/pending -------------------
+router.get('/invites/pending', authenticate, async (req, res, next) => {
+    try {
+        const boards = await Board.find({
+            members: {
+                $elemMatch: {
+                    userId: req.user.id,
+                    status: 'pending'
+                }
+            }
+        }).populate('ownerId', 'name username email avatar')
+
+        const invites = boards.map(b => {
+            const mem = b.members.find(m => m.userId.toString() === req.user.id)
+            return {
+                _id: b._id,
+                boardId: b._id,
+                title: b.title,
+                background: b.background,
+                owner: b.ownerId,
+                role: mem ? mem.role : 'member',
+                createdAt: b.updatedAt
+            }
+        })
+
+        res.json({ invites })
+    } catch (err) {
+        next(err)
+    }
+})
+
+//-------------------------- PATCH /api/boards/:boardId/invites/respond --------
+router.patch('/:boardId/invites/respond', authenticate, async (req, res, next) => {
+    try {
+        const { action } = req.body
+        const { boardId } = req.params
+
+        if (!['accept', 'decline'].includes(action)) {
+            const err = new Error('Invalid action. Must be accept or decline.')
+            err.status = 400
+            return next(err)
+        }
+
+        const board = await Board.findById(boardId)
+        if (!board) {
+            const err = new Error('Board not found')
+            err.status = 404
+            return next(err)
+        }
+
+        const memberIndex = board.members.findIndex(
+            m => m.userId.toString() === req.user.id && m.status === 'pending'
+        )
+
+        if (memberIndex === -1) {
+            const err = new Error('No pending invitation found for this board')
+            err.status = 404
+            return next(err)
+        }
+
+        if (action === 'accept') {
+            board.members[memberIndex].status = 'accepted'
+            await board.save()
+
+            // Trigger Notification to Owner
+            const { createNotification } = require('../utils/notify')
+            await createNotification({
+                recipientId: board.ownerId,
+                senderId: req.user.id,
+                type: 'GENERAL',
+                title: 'Invite Accepted',
+                message: `${req.user.username || 'A user'} accepted your invite to join "${board.title}"`,
+                link: `/board/${board._id}`
+            })
+
+            const updatedBoard = await Board.findById(board._id).populate('members.userId', 'name username email avatar')
+            return res.json({ message: 'Invitation accepted!', board: updatedBoard })
+        } else {
+            board.members.splice(memberIndex, 1)
+            await board.save()
+            return res.json({ message: 'Invitation declined.' })
+        }
+    } catch (err) {
         next(err)
     }
 })
@@ -157,17 +249,27 @@ router.post('/:boardId/members', authenticate, authorizeBoard, requireOwner, asy
           return next(err)
         }
 
-    const alreadyMember = req.board.members.some(
+    const existingMember = req.board.members.find(
       member => member.userId.toString() === userToAdd._id.toString()
     )
 
-    if (alreadyMember) {
-      const err = new Error('User is already a member of this board')
-      err.status = 400
-      return next(err)
+    if (existingMember) {
+      if (existingMember.status === 'accepted' || !existingMember.status) {
+        const err = new Error('User is already a member of this board')
+        err.status = 400
+        return next(err)
+      } else if (existingMember.status === 'pending') {
+        const err = new Error('Invitation already sent to this user')
+        err.status = 400
+        return next(err)
+      } else if (existingMember.status === 'declined') {
+        existingMember.status = 'pending'
+        existingMember.role = req.body.role || 'member'
+      }
+    } else {
+      req.board.members.push({ userId: userToAdd._id, role: req.body.role || 'member', status: 'pending' })
     }
 
-    req.board.members.push({ userId: userToAdd._id, role: req.body.role || 'member' })
     await req.board.save()
     const updatedBoard = await Board.findById(req.board._id).populate('members.userId', 'name username email avatar')
 
@@ -177,11 +279,11 @@ router.post('/:boardId/members', authenticate, authorizeBoard, requireOwner, asy
         senderId: req.user.id,
         type: 'BOARD_INVITE',
         title: 'Board Invitation',
-        message: `${req.user.username || 'A team member'} added you to board "${req.board.title}"`,
-        link: `/board/${req.board._id}`
+        message: `${req.user.username || 'A team member'} invited you to join board "${req.board.title}"`,
+        link: `/`
     })
 
-    res.status(201).json({ message: `${username} added to the board`, board: updatedBoard })
+    res.status(201).json({ message: `Invitation sent to ${username}`, board: updatedBoard })
 
     } catch(err){
         next(err)

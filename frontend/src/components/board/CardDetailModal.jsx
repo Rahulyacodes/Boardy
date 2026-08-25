@@ -223,6 +223,10 @@ function CardDetailModal({
   const [checklistTitleInput, setChecklistTitleInput] = useState('')
   const [newSubitemInputs, setNewSubitemInputs] = useState({})
 
+  // Checklist Item Drag & Drop state
+  const [draggedChecklistItem, setDraggedChecklistItem] = useState(null)
+  const [dragOverChecklistItem, setDragOverChecklistItem] = useState(null)
+
   // Attachments form input
   const [newAttachmentUrl, setNewAttachmentUrl] = useState('')
   const [newAttachmentTitle, setNewAttachmentTitle] = useState('')
@@ -252,6 +256,13 @@ function CardDetailModal({
   const popoverRef = useRef(null)
   const titleInputRef = useRef(null)
   const descEditorRef = useRef(null)
+  const pendingSubitemSyncTimers = useRef({})
+
+  useEffect(() => {
+    return () => {
+      Object.values(pendingSubitemSyncTimers.current).forEach((timerId) => clearTimeout(timerId))
+    }
+  }, [])
 
   // Close popovers on click outside
   useEffect(() => {
@@ -492,7 +503,19 @@ function CardDetailModal({
       return cl
     })
     setChecklists(updated)
-    handleSaveAll({ checklists: updated })
+
+    // Set card status symbol on the right side to "Syncing..." instantly
+    setSaving(true)
+
+    const itemKey = `${clIndex}-${itemIndex}`
+    if (pendingSubitemSyncTimers.current[itemKey]) {
+      clearTimeout(pendingSubitemSyncTimers.current[itemKey])
+    }
+
+    pendingSubitemSyncTimers.current[itemKey] = setTimeout(() => {
+      delete pendingSubitemSyncTimers.current[itemKey]
+      handleSaveAll({ checklists: updated })
+    }, 2000)
   }
 
   const handleDeleteSubitem = (clIndex, itemIndex) => {
@@ -512,6 +535,64 @@ function CardDetailModal({
   const handleDeleteChecklist = (clIndex) => {
     const updated = checklists.filter((_, i) => i !== clIndex)
     setChecklists(updated)
+    handleSaveAll({ checklists: updated })
+  }
+
+  // Subtask Checklist Item Drag and Drop Handlers
+  const handleChecklistItemDragStart = (e, clIndex, itemIndex) => {
+    e.stopPropagation()
+    setDraggedChecklistItem({ clIndex, itemIndex })
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'checklist-item', clIndex, itemIndex }))
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleChecklistItemDragOver = (e, clIndex, itemIndex) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    if (
+      !dragOverChecklistItem ||
+      dragOverChecklistItem.clIndex !== clIndex ||
+      dragOverChecklistItem.itemIndex !== itemIndex
+    ) {
+      setDragOverChecklistItem({ clIndex, itemIndex })
+    }
+  }
+
+  const handleChecklistItemDragLeave = (e) => {
+    e.stopPropagation()
+  }
+
+  const handleChecklistItemDrop = (e, targetClIndex, targetItemIndex) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOverChecklistItem(null)
+
+    const sourceClIndex = draggedChecklistItem?.clIndex
+    const sourceItemIndex = draggedChecklistItem?.itemIndex
+
+    if (sourceClIndex === undefined || sourceItemIndex === undefined) {
+      setDraggedChecklistItem(null)
+      return
+    }
+
+    if (sourceClIndex !== targetClIndex || sourceItemIndex === targetItemIndex) {
+      setDraggedChecklistItem(null)
+      return
+    }
+
+    const updated = checklists.map((cl, idx) => {
+      if (idx === targetClIndex) {
+        const itemsCopy = [...(cl.items || [])]
+        const [movedItem] = itemsCopy.splice(sourceItemIndex, 1)
+        itemsCopy.splice(targetItemIndex, 0, movedItem)
+        return { ...cl, items: itemsCopy }
+      }
+      return cl
+    })
+
+    setChecklists(updated)
+    setDraggedChecklistItem(null)
     handleSaveAll({ checklists: updated })
   }
 
@@ -1441,45 +1522,77 @@ function CardDetailModal({
 
                   {/* Checklist Subtask Items */}
                   <div className="space-y-2">
-                    {items.map((item, itemIndex) => (
-                      <div
-                        key={itemIndex}
-                        className="flex items-center justify-between bg-[#121218] border border-[#2A2A38] rounded-xl px-3.5 py-2 hover:border-purple-500/40 transition-colors"
-                      >
-                        <div
-                          onClick={() => !isViewer && handleToggleSubitem(clIndex, itemIndex)}
-                          className="flex items-center gap-3 cursor-pointer flex-1 min-w-0 select-none"
-                        >
-                          {/* Clean Outlined Checkmark Button */}
-                          <button
-                            type="button"
-                            disabled={isViewer}
-                            className={`w-4 h-4 rounded-md border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer ${
-                              item.completed
-                                ? 'border-purple-500 bg-purple-500/20 text-purple-400'
-                                : 'border-gray-600 hover:border-purple-400 text-transparent bg-transparent'
-                            }`}
-                          >
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
-                              <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                          </button>
-                          <span className={`text-xs break-words ${item.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>
-                            {item.title}
-                          </span>
-                        </div>
+                    {items.map((item, itemIndex) => {
+                      const isBeingDragged =
+                        draggedChecklistItem?.clIndex === clIndex && draggedChecklistItem?.itemIndex === itemIndex
+                      const isTargetHovered =
+                        dragOverChecklistItem?.clIndex === clIndex && dragOverChecklistItem?.itemIndex === itemIndex
 
-                        {!isViewer && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSubitem(clIndex, itemIndex)}
-                            className="text-gray-500 hover:text-red-400 p-1 text-xs cursor-pointer"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      return (
+                        <div
+                          key={itemIndex}
+                          draggable={!isViewer}
+                          onDragStart={(e) => !isViewer && handleChecklistItemDragStart(e, clIndex, itemIndex)}
+                          onDragOver={(e) => !isViewer && handleChecklistItemDragOver(e, clIndex, itemIndex)}
+                          onDragLeave={(e) => !isViewer && handleChecklistItemDragLeave(e)}
+                          onDrop={(e) => !isViewer && handleChecklistItemDrop(e, clIndex, itemIndex)}
+                          onDragEnd={() => {
+                            setDraggedChecklistItem(null)
+                            setDragOverChecklistItem(null)
+                          }}
+                          className={`group flex items-center justify-between bg-[#121218] border border-[#2A2A38] hover:border-purple-500/40 rounded-xl px-3 py-2 transition-all ${
+                            !isViewer ? 'cursor-grab active:cursor-grabbing' : ''
+                          } ${isBeingDragged ? 'opacity-40 scale-95 border-dashed border-purple-400' : ''} ${
+                            isTargetHovered ? 'ring-2 ring-purple-500/60 bg-[#1A1A26] scale-[1.01]' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0 select-none">
+                            {/* Drag Grip Handle */}
+                            {!isViewer && (
+                              <span
+                                title="Drag to reorder subtask"
+                                className="text-gray-500 opacity-40 group-hover:opacity-100 hover:text-purple-300 cursor-grab active:cursor-grabbing text-xs select-none transition-opacity"
+                              >
+                                ⠿
+                              </span>
+                            )}
+
+                            <div
+                              onClick={() => !isViewer && handleToggleSubitem(clIndex, itemIndex)}
+                              className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0"
+                            >
+                              {/* Clean Outlined Checkmark Button */}
+                              <button
+                                type="button"
+                                disabled={isViewer}
+                                className={`w-4 h-4 rounded-md border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer ${
+                                  item.completed
+                                    ? 'border-purple-500 bg-purple-500/20 text-purple-400'
+                                    : 'border-gray-600 hover:border-purple-400 text-transparent bg-transparent'
+                                }`}
+                              >
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              </button>
+                              <span className={`text-xs break-words ${item.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                                {item.title}
+                              </span>
+                            </div>
+                          </div>
+
+                          {!isViewer && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSubitem(clIndex, itemIndex)}
+                              className="text-gray-500 hover:text-red-400 p-1 text-xs cursor-pointer opacity-70 group-hover:opacity-100 transition-opacity shrink-0"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
 
                   {/* Add Subitem Form per Checklist */}
@@ -1514,13 +1627,67 @@ function CardDetailModal({
                     <h3 className="font-bold text-sm text-gray-200">Attachments</h3>
                   </div>
                   {!isViewer && (
-                    <button
-                      type="button"
-                      onClick={() => setActivePopover('attachment')}
-                      className="px-3 py-1 rounded-xl bg-[#252533] hover:bg-[#2F2F40] border border-[#3A3A4D] text-xs font-semibold text-gray-300 hover:text-white transition-colors cursor-pointer"
-                    >
-                      + Add Link
-                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setActivePopover(activePopover === 'sectionAttachment' ? null : 'sectionAttachment')}
+                        className="px-3 py-1 rounded-xl bg-[#252533] hover:bg-[#2F2F40] border border-[#3A3A4D] text-xs font-semibold text-gray-300 hover:text-white transition-colors cursor-pointer"
+                      >
+                        + Add Link
+                      </button>
+
+                      {/* Popover positioned directly near + Add Link button */}
+                      {activePopover === 'sectionAttachment' && (
+                        <div
+                          ref={popoverRef}
+                          className="absolute right-0 bottom-full mb-2 z-50 bg-[#1A1A26] border border-[#3A3A4D] rounded-2xl p-4 shadow-2xl animate-fadeIn w-80 text-xs text-white"
+                        >
+                          <div className="flex items-center justify-between border-b border-[#2A2A38] pb-2 mb-3">
+                            <span className="font-bold text-gray-200 uppercase tracking-wider text-[11px]">
+                              Attach Link
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActivePopover(null)}
+                              className="text-gray-400 hover:text-white cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+
+                          <form onSubmit={handleAddAttachment} className="space-y-3">
+                            <div>
+                              <label className="text-gray-400 font-semibold text-[10px] block mb-1">Attach Link (URL)</label>
+                              <input
+                                type="url"
+                                placeholder="https://example.com"
+                                value={newAttachmentUrl}
+                                onChange={(e) => setNewAttachmentUrl(e.target.value)}
+                                className="w-full bg-[#121218] border border-[#2A2A38] focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                                required
+                                autoFocus
+                              />
+                            </div>
+                            <div>
+                              <label className="text-gray-400 font-semibold text-[10px] block mb-1">Display Name (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="Design link / Documentation..."
+                                value={newAttachmentTitle}
+                                onChange={(e) => setNewAttachmentTitle(e.target.value)}
+                                className="w-full bg-[#121218] border border-[#2A2A38] focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                              />
+                            </div>
+                            <button
+                              type="submit"
+                              className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow"
+                            >
+                              Attach Link
+                            </button>
+                          </form>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1684,7 +1851,22 @@ function CardDetailModal({
 
             {/* Modal Footer Auto-save Status */}
             <div className="pt-3 border-t border-[#2A2A38] flex items-center justify-between text-[11px] text-gray-400">
-              <span>{saving ? 'Syncing...' : 'Saved'}</span>
+              <span className="flex items-center gap-1.5 font-medium">
+                {saving ? (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
+                    </span>
+                    <span className="text-amber-300 font-mono text-[11px]">Syncing...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span className="text-emerald-300 font-mono text-[11px]">Saved</span>
+                  </>
+                )}
+              </span>
               <button
                 type="button"
                 onClick={onClose}

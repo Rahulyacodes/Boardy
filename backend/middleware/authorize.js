@@ -18,7 +18,7 @@ async function authorizeBoard(req, res, next) {
     // members are now embedded inside the board document
 
     const isMember = board.members.some(
-      (member) => member.userId.toString() === req.user.id,
+      (member) => member.userId.toString() === req.user.id && (member.status === 'accepted' || !member.status),
     );
     // .some() goes through each one and returns true if ANY of them match both conditions
 
@@ -55,7 +55,7 @@ try{
 
   // check if logged in user is member of board or not
   const isMember = board.members.some(
-    member => member.userId.toString() === req.user.id
+    member => member.userId.toString() === req.user.id && (member.status === 'accepted' || !member.status)
   )
 
   if (!isMember) {
@@ -95,7 +95,7 @@ async function authorizeCard(req, res, next) {
 
   // check membership
   const isMember = board.members.some(
-    member => member.userId.toString() === req.user.id
+    member => member.userId.toString() === req.user.id && (member.status === 'accepted' || !member.status)
   )
 
   if (!isMember) {

@@ -22,6 +22,11 @@ const boardSchema = new mongoose.Schema({
         type: String,
         enum: ['owner', 'member', 'viewer'],  
         default: 'member'
+      },
+      status: {
+        type: String,
+        enum: ['pending', 'accepted', 'declined'],
+        default: 'accepted'
       }
     }
   ],

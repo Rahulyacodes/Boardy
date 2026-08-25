@@ -60,6 +60,88 @@ export function formatTimeAgo(dateInput) {
   return `${dateStr}, ${timeStr}`
 }
 
+// Smart Due Date Status Calculator
+export function getDueDateStatus(dueDateStr, isCompleted) {
+  if (!dueDateStr) return null
+
+  const due = new Date(dueDateStr)
+  if (isNaN(due.getTime())) return null
+
+  if (isCompleted) {
+    return {
+      status: 'completed',
+      text: due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+      iconType: 'completed'
+    }
+  }
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const diffDays = Math.round((dueDay - today) / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 0) {
+    return {
+      status: 'overdue',
+      text: `Overdue • ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
+      badgeClass: 'bg-red-500/20 text-red-300 border-red-500/40 font-bold',
+      iconType: 'overdue'
+    }
+  }
+
+  if (diffDays === 0) {
+    return {
+      status: 'due-soon',
+      text: 'Due Today',
+      badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold animate-pulse',
+      iconType: 'due-soon'
+    }
+  }
+
+  if (diffDays === 1) {
+    return {
+      status: 'due-soon',
+      text: 'Due Tomorrow',
+      badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold',
+      iconType: 'due-soon'
+    }
+  }
+
+  return {
+    status: 'future',
+    text: due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    badgeClass: 'bg-[#252533] text-gray-300 border-[#3A3A4D]',
+    iconType: 'future'
+  }
+}
+
+// Clean Vector SVG Icon Renderer for Due Date Badges
+export function renderDueIcon(iconType) {
+  if (iconType === 'completed') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    )
+  }
+  if (iconType === 'overdue') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    )
+  }
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
+    </svg>
+  )
+}
+
 // Robust check if HTML string is empty (handles <br>, <p><br></p>, &nbsp;, whitespace)
 function isHtmlEmpty(htmlStr) {
   if (!htmlStr) return true
@@ -899,6 +981,37 @@ function CardDetailModal({
                             )
                           })}
                         </div>
+
+                        {/* Active Custom Labels Section */}
+                        {(() => {
+                          const customActiveLabels = (labels || []).filter((item) => {
+                            if (!item || !item.color) return false
+                            return !PREDEFINED_LABELS.some((p) => p.color === item.color && p.name === item.name)
+                          })
+                          if (customActiveLabels.length === 0) return null
+                          return (
+                            <div className="mt-3">
+                              <span className="text-gray-400 font-semibold text-[10px] block mb-2 uppercase tracking-wider">Custom Labels</span>
+                              <div className="grid grid-cols-2 gap-2">
+                                {customActiveLabels.map((l, idx) => (
+                                  <button
+                                    key={l.color + (l.name || idx)}
+                                    type="button"
+                                    onClick={() => handleToggleLabel(l)}
+                                    className="h-7 rounded-lg px-2.5 text-[11px] font-semibold flex items-center justify-between transition-transform active:scale-95 shadow cursor-pointer truncate"
+                                    style={{ background: l.color, color: '#fff' }}
+                                    title="Click to unselect & remove label"
+                                  >
+                                    <span className="truncate">{l.name}</span>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-white ml-1 shrink-0">
+                                      <polyline points="20 6 9 17 4 12"/>
+                                    </svg>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </div>
 
                       {/* Clear "OR" Divider */}
@@ -1092,18 +1205,19 @@ function CardDetailModal({
                 )}
 
                 {/* Active Due Date Badge */}
-                {hasDueDate && (
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-semibold text-gray-400 block uppercase">Due Date</span>
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium inline-flex items-center gap-1.5">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <polyline points="12 6 12 12 16 14"/>
-                      </svg>
-                      <span>{new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </span>
-                  </div>
-                )}
+                {hasDueDate && (() => {
+                  const dueInfo = getDueDateStatus(dueDate, completed)
+                  if (!dueInfo) return null
+                  return (
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-semibold text-gray-400 block uppercase">Due Date</span>
+                      <span className={`px-2.5 py-1 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm ${dueInfo.badgeClass}`}>
+                        {renderDueIcon(dueInfo.iconType)}
+                        <span>{dueInfo.text}</span>
+                      </span>
+                    </div>
+                  )
+                })()}
 
               </div>
             )}

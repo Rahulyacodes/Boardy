@@ -17,19 +17,9 @@ import { getDiceBearAvatar } from '../utils/avatars'
 import BoardNavbar from '../components/layout/BoardNavbar'
 import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
-import CardDetailModal from '../components/board/CardDetailModal'
+import CardDetailModal, { getDueDateStatus, renderDueIcon } from '../components/board/CardDetailModal'
 
-// Helper to check if a list title represents a Done/Finished list
-const isDoneList = (listTitle) => {
-  if (!listTitle) return false
-  const title = listTitle.toLowerCase()
-  return (
-    title.includes('done') ||
-    title.includes('finish') ||
-    title.includes('completed') ||
-    title.includes('complete')
-  )
-}
+
 
 function BoardPage() {
   const { boardId } = useParams()
@@ -204,6 +194,7 @@ function BoardPage() {
   }
 
   const handleDragStart = (e, card, sourceListId) => {
+    e.stopPropagation()
     setDraggedCard({ cardId: card._id, sourceListId })
     e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'card', cardId: card._id, sourceListId }))
     e.dataTransfer.effectAllowed = 'move'
@@ -225,6 +216,7 @@ function BoardPage() {
 
   const handleDrop = (e, targetListId) => {
     e.preventDefault()
+    e.stopPropagation()
     setDragOverListId(null)
 
     const dataRaw = e.dataTransfer.getData('text/plain')
@@ -236,7 +228,7 @@ function BoardPage() {
     }
 
     // Handle List Reordering Drop
-    if (parsedData.type === 'list' || draggedListId) {
+    if (parsedData.type === 'list' || (draggedListId && !draggedCard)) {
       const activeListId = parsedData.listId || draggedListId
       if (!activeListId || activeListId === targetListId) {
         setDraggedListId(null)
@@ -254,8 +246,8 @@ function BoardPage() {
     }
 
     // Handle Card Move Drop
-    let cardId = draggedCard?.cardId || parsedData.cardId
-    let sourceListId = draggedCard?.sourceListId || parsedData.sourceListId
+    const cardId = draggedCard?.cardId || parsedData.cardId
+    const sourceListId = draggedCard?.sourceListId || parsedData.sourceListId
 
     if (!cardId || sourceListId === targetListId) {
       setDraggedCard(null)
@@ -307,6 +299,8 @@ function BoardPage() {
 
   const handleToggleCompleteCard = (cardId, currentStatus) => {
     const nextStatus = !currentStatus
+
+    // Optimistically update board state immediately for responsive UI feedback
     setBoard((prev) => {
       if (!prev) return prev
       return {
@@ -318,12 +312,12 @@ function BoardPage() {
       }
     })
 
-    // Clear previous pending timer if user toggled again within 3s
+    // Clear previous pending timer if user toggled again within 3 seconds (prevents accidental clicks)
     if (pendingCardSyncTimers.current[cardId]) {
       clearTimeout(pendingCardSyncTimers.current[cardId])
     }
 
-    // Debounce DB write by 3 seconds (No Undo popup, clean board UI)
+    // 3-Second intentional delay before committing to database
     pendingCardSyncTimers.current[cardId] = setTimeout(async () => {
       try {
         await updateCard(cardId, { completed: nextStatus })
@@ -536,26 +530,24 @@ function BoardPage() {
                           {/* Card Title & Quick Complete Action */}
                           <div className="flex justify-between items-start gap-2">
                             <div className="flex items-start gap-2 min-w-0 flex-1">
-                              {!isDoneList(list.title) && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleToggleCompleteCard(card._id, card.completed)
-                                  }}
-                                  className={`mt-0.5 shrink-0 p-0.5 rounded border transition-all ${
-                                    card.completed
-                                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                                      : 'border-white/20 text-gray-500 hover:text-white hover:border-gray-400'
-                                  }`}
-                                  title={card.completed ? 'Mark as incomplete' : 'Mark as completed'}
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <polyline points="20 6 9 17 4 12"/>
-                                  </svg>
-                                </button>
-                              )}
-                              <span className={`font-medium leading-snug break-words ${card.completed || isDoneList(list.title) ? 'line-through text-gray-400' : 'text-gray-200'}`}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleToggleCompleteCard(card._id, card.completed)
+                                }}
+                                className={`mt-0.5 shrink-0 p-0.5 rounded border transition-all ${
+                                  card.completed
+                                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                                    : 'border-white/20 text-gray-500 hover:text-white hover:border-gray-400'
+                                }`}
+                                title={card.completed ? 'Mark as incomplete' : 'Mark as completed'}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              </button>
+                              <span className={`font-medium leading-snug break-words ${card.completed ? 'line-through text-gray-400' : 'text-gray-200'}`}>
                                 {card.title}
                               </span>
                             </div>
@@ -580,16 +572,25 @@ function BoardPage() {
                           {(card.dueDate || hasChecklist || hasAssigned) && (
                             <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-white/5 text-[10px] text-gray-400 font-medium">
                               <div className="flex items-center gap-2">
-                                {card.dueDate && (
-                                  <span className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-gray-300">
-                                    🕒 {card.dueDate}
-                                  </span>
-                                )}
+                                {card.dueDate && (() => {
+                                  const dueInfo = getDueDateStatus(card.dueDate, card.completed)
+                                  if (!dueInfo) return null
+                                  return (
+                                    <span className={`flex items-center gap-1.5 border rounded px-1.5 py-0.5 text-[10px] shadow-sm ${dueInfo.badgeClass}`}>
+                                      {renderDueIcon(dueInfo.iconType)}
+                                      <span>{dueInfo.text}</span>
+                                    </span>
+                                  )
+                                })()}
                                 {hasChecklist && (
                                   <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 ${
                                     completedChecklist === card.checklist.length ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-white/5 border border-white/10 text-gray-300'
                                   }`}>
-                                    ☑ {completedChecklist}/{card.checklist.length}
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0">
+                                      <polyline points="9 11 12 14 22 4"/>
+                                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                                    </svg>
+                                    <span>{completedChecklist}/{card.checklist.length}</span>
                                   </span>
                                 )}
                               </div>

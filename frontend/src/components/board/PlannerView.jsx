@@ -15,17 +15,7 @@ const getLocalDateString = (d) => {
   return `${year}-${month}-${day}`
 }
 
-// Helper to check if a list title represents a Done/Finished list
-const isDoneList = (listTitle) => {
-  if (!listTitle) return false
-  const title = listTitle.toLowerCase()
-  return (
-    title.includes('done') ||
-    title.includes('finish') ||
-    title.includes('completed') ||
-    title.includes('complete')
-  )
-}
+
 
 function PlannerView({ onOpenBoard }) {
   const { user } = useAuth()
@@ -167,7 +157,7 @@ function PlannerView({ onOpenBoard }) {
       }
 
       // 3. Status Filter
-      const isDone = card.completed || isDoneList(card.listTitle)
+      const isDone = !!card.completed
       if (filterStatus === 'pending' && isDone) return false
       if (filterStatus === 'completed' && !isDone) return false
 
@@ -192,8 +182,7 @@ function PlannerView({ onOpenBoard }) {
     const endOfWeekStr = getLocalDateString(endOfWeek)
 
     filteredCards.forEach((card) => {
-      const isDoneListCard = isDoneList(card.listTitle)
-      const isDone = card.completed || isDoneListCard
+      const isDone = !!card.completed
       const pendingUndo = undoToasts[card._id]
 
       // 1. Handle Active 3s Undo Countdown state
@@ -205,7 +194,7 @@ function PlannerView({ onOpenBoard }) {
         }
         // Task was open, now pending completed => STAY in its original open category until countdown finishes
       } else if (isDone) {
-        // Card is finished or in a Done list => place in completed
+        // Card is finished => place in completed
         completed.push(card)
         return
       }
@@ -251,9 +240,6 @@ function PlannerView({ onOpenBoard }) {
   // Toggle Card Completion with 3-Second Undo Popup (Card stays in place during countdown)
   const handleToggleComplete = (card, e) => {
     if (e) e.stopPropagation()
-    
-    // Cards from Done lists cannot be toggled here
-    if (isDoneList(card.listTitle)) return
 
     const originalStatus = !!card.completed
     const pendingStatus = !originalStatus
@@ -310,6 +296,7 @@ function PlannerView({ onOpenBoard }) {
         await updateCard(card._id, { completed: pendingStatus })
       } catch (err) {
         console.error('Failed to sync completion status to DB:', err)
+        fetchPlannerData()
       }
     }, 3000)
 
@@ -949,10 +936,10 @@ function PlannerView({ onOpenBoard }) {
                           className="bg-[#121218] border border-[#2A2A38] hover:border-purple-500 rounded p-1 text-[10px] truncate cursor-pointer transition-colors flex items-center justify-between"
                           title={c.title}
                         >
-                          <span className={c.completed || isDoneList(c.listTitle) ? 'line-through text-gray-500' : 'text-gray-200'}>
+                          <span className={c.completed ? 'line-through text-gray-500' : 'text-gray-200'}>
                             {c.title}
                           </span>
-                          {(c.completed || isDoneList(c.listTitle)) && (
+                          {c.completed && (
                             <span className="text-emerald-400 font-bold text-[9px]">✓</span>
                           )}
                         </div>
@@ -992,7 +979,7 @@ function PlannerView({ onOpenBoard }) {
                 <span>•</span>
                 <span className="text-gray-400">{selectedCardModal.listTitle}</span>
               </div>
-              <h2 className={`text-lg font-bold ${selectedCardModal.completed || isDoneList(selectedCardModal.listTitle) ? 'line-through text-gray-400' : 'text-white'}`}>
+              <h2 className={`text-lg font-bold ${selectedCardModal.completed ? 'line-through text-gray-400' : 'text-white'}`}>
                 {selectedCardModal.title}
               </h2>
             </div>
@@ -1025,12 +1012,7 @@ function PlannerView({ onOpenBoard }) {
 
             {/* Action Footer Buttons */}
             <div className="flex items-center gap-3 pt-2 border-t border-[#2A2A38]">
-              {isDoneList(selectedCardModal.listTitle) ? (
-                <div className="flex-1 py-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2">
-                  <span>✓</span>
-                  <span>From {selectedCardModal.listTitle} (Completed List)</span>
-                </div>
-              ) : undoToasts[selectedCardModal._id] ? (
+              {undoToasts[selectedCardModal._id] ? (
                 <div className="flex-1 bg-[#1C1C26] border border-purple-500/50 rounded-xl px-3 py-2 flex items-center justify-between text-xs text-purple-200 shadow-xl animate-fadeIn">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-ping" />
@@ -1123,8 +1105,7 @@ function ScheduleColumn({ title, badgeCount, badgeColor, dotColor, cards, undoTo
 }
 
 function PlannerCardItem({ card, undoState, onCardClick, onToggleComplete, onUndo }) {
-  const fromDoneList = isDoneList(card.listTitle)
-  const isDone = card.completed || fromDoneList
+  const isDone = card.completed || (undoState && undoState.pendingStatus)
 
   return (
     <div
@@ -1140,30 +1121,21 @@ function PlannerCardItem({ card, undoState, onCardClick, onToggleComplete, onUnd
           {card.title}
         </h4>
 
-        {/* Action / Status Indicator */}
-        {fromDoneList ? (
-          /* Card from Done/Finished list: No tick button, render indicator badge */
-          <span className="shrink-0 text-[10px] font-medium bg-emerald-950/50 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <span>✓</span>
-            <span>From {card.listTitle}</span>
-          </span>
-        ) : (
-          /* Normal Task Checkbox Toggle Button */
-          <button
-            type="button"
-            onClick={(e) => onToggleComplete(card, e)}
-            className={`shrink-0 p-1 rounded-lg border transition-all cursor-pointer ${
-              card.completed || (undoState && undoState.pendingStatus)
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                : 'border-[#2A2A38] text-gray-500 hover:text-white hover:border-gray-400'
-            }`}
-            title={card.completed ? 'Mark as incomplete' : 'Mark as completed'}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          </button>
-        )}
+        {/* Task Checkbox Toggle Button */}
+        <button
+          type="button"
+          onClick={(e) => onToggleComplete(card, e)}
+          className={`shrink-0 p-1 rounded-lg border transition-all cursor-pointer ${
+            isDone
+              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+              : 'border-[#2A2A38] text-gray-500 hover:text-white hover:border-gray-400'
+          }`}
+          title={card.completed ? 'Mark as incomplete' : 'Mark as completed'}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </button>
       </div>
 
       {card.description && (
@@ -1185,7 +1157,7 @@ function PlannerCardItem({ card, undoState, onCardClick, onToggleComplete, onUnd
         )}
       </div>
 
-      {/* Undo Popup Bar Below Card */}
+      {/* 2-Second Undo Popup Bar Below Card */}
       {undoState && (
         <div
           onClick={(e) => e.stopPropagation()}

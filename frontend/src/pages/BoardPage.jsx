@@ -65,11 +65,17 @@ function BoardPage() {
   const [dragOverCardId, setDragOverCardId] = useState(null)
   const [dragOverCardPos, setDragOverCardPos] = useState('below') // 'above' | 'below'
 
-  // Viewer role check
-  const isOwner = board?.ownerId === user?.id || board?.ownerId?._id === user?.id
-  const memberEntry = board?.members?.find((m) => (m.userId?._id || m.userId) === user?.id)
-  const userRole = isOwner ? 'owner' : memberEntry ? memberEntry.role : 'viewer'
-  const isViewer = userRole === 'viewer'
+  // Viewer role check (only active after board loads & role is explicitly viewer)
+  const currentUserId = user?.id || user?._id
+  const ownerUserId = typeof board?.ownerId === 'object' ? (board?.ownerId?._id || board?.ownerId?.id) : board?.ownerId
+  const isOwner = Boolean(ownerUserId && currentUserId && ownerUserId.toString() === currentUserId.toString())
+
+  const memberEntry = board?.members?.find((m) => {
+    const mId = typeof m.userId === 'object' ? (m.userId?._id || m.userId?.id) : m.userId
+    return mId?.toString() === currentUserId?.toString()
+  })
+
+  const isViewer = Boolean(board && !loading && !isOwner && memberEntry?.role === 'viewer')
 
   const fetchBoardData = async () => {
     try {

@@ -32,6 +32,15 @@ function LoginPage() {
   const { loginUser } = useAuth()
   const navigate      = useNavigate()
 
+  const redirectAfterLogin = () => {
+    const pendingToken = sessionStorage.getItem('pendingInviteToken')
+    if (pendingToken) {
+      navigate(`/invite/${pendingToken}`)
+    } else {
+      navigate('/')
+    }
+  }
+
   useEffect(() => {
     let timer
     if (resendCooldown > 0) {
@@ -50,7 +59,7 @@ function LoginPage() {
     try {
       const res = await login({ identifier, password })
       loginUser(res.data.user, res.data.token)
-      navigate('/')
+      redirectAfterLogin()
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid credentials or server error')
     } finally {
@@ -118,7 +127,7 @@ function LoginPage() {
         otp: otp.trim()
       })
       loginUser(res.data.user, res.data.token)
-      navigate('/')
+      redirectAfterLogin()
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid or expired login code')
     } finally {
@@ -142,7 +151,7 @@ function LoginPage() {
         loginUser(res.data.user, res.data.token)
       } else {
         loginUser(res.data.user, res.data.token)
-        navigate('/')
+        redirectAfterLogin()
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Google Authentication failed')
@@ -164,7 +173,7 @@ function LoginPage() {
       })
       loginUser(res.data.user, res.data.token)
       setNewGoogleUser(null)
-      navigate('/')
+      redirectAfterLogin()
     } catch (err) {
       setUsernameError(err.response?.data?.error || 'Failed to update username')
     } finally {

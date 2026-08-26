@@ -53,6 +53,8 @@ export const removeMember = (id, userId) => api.delete(`/boards/${id}/members/${
 export const updateMemberRole = (id, userId, role) => api.patch(`/boards/${id}/members/${userId}`, { role })
 export const getPendingInvites = () => api.get('/boards/invites/pending')
 export const respondToInvite = (boardId, action) => api.patch(`/boards/${boardId}/invites/respond`, { action })
+export const getInviteInfo = (inviteToken) => api.get(`/boards/invite-info/${inviteToken}`)
+export const joinByLink = (inviteToken) => api.post(`/boards/join-by-link/${inviteToken}`)
 
 // ---- search ----
 export const searchAll = (q) => api.get('/search', { params: { q } })

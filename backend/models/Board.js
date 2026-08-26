@@ -37,6 +37,11 @@ const boardSchema = new mongoose.Schema({
   isStarred: {
     type: Boolean,
     default: false
+  },
+  inviteToken: {
+    type: String,
+    unique: true,
+    sparse: true
   }
 }, { timestamps: true })
 

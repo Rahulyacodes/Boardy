@@ -1,4 +1,5 @@
 const express        = require('express')
+const crypto         = require('crypto')
 const Board          = require('../models/Board')
 const authenticate   = require('../middleware/authenticate')
 const { authorizeBoard, requireOwner} = require('../middleware/authorize')
@@ -17,11 +18,13 @@ router.post('/', authenticate, async (req, res, next) => {
             return next(err)
         }
 
+       const inviteToken = crypto.randomBytes(16).toString('hex')
        const board = await Board.create({
         title,
         background: background || 'linear-gradient(135deg, #1E1E24, #2A2A38)',
         ownerId: req.user.id,
-        members: [{userId: req.user.id, role: 'owner', status: 'accepted'}]
+        members: [{userId: req.user.id, role: 'owner', status: 'accepted'}],
+        inviteToken
        })
 
         res.status(201).json(board)
@@ -138,6 +141,76 @@ router.patch('/:boardId/invites/respond', authenticate, async (req, res, next) =
     }
 })
 
+//-------------------------- GET /api/boards/invite-info/:inviteToken -----------
+router.get('/invite-info/:inviteToken', async (req, res, next) => {
+    try {
+        const { inviteToken } = req.params
+        const board = await Board.findOne({ inviteToken }).populate('ownerId', 'name username email avatar')
+        if (!board) {
+            const err = new Error('Invalid or expired invitation link')
+            err.status = 404
+            return next(err)
+        }
+        const acceptedMembersCount = board.members.filter(m => m.status === 'accepted' || !m.status).length
+        res.json({
+            boardId: board._id,
+            title: board.title,
+            background: board.background,
+            owner: board.ownerId,
+            memberCount: acceptedMembersCount
+        })
+    } catch (err) {
+        next(err)
+    }
+})
+
+//-------------------------- POST /api/boards/join-by-link/:inviteToken ----------
+router.post('/join-by-link/:inviteToken', authenticate, async (req, res, next) => {
+    try {
+        const { inviteToken } = req.params
+        const board = await Board.findOne({ inviteToken })
+        if (!board) {
+            const err = new Error('Invalid or expired invitation link')
+            err.status = 404
+            return next(err)
+        }
+
+        const existingMemberIndex = board.members.findIndex(
+            m => m.userId.toString() === req.user.id
+        )
+
+        if (existingMemberIndex !== -1) {
+            const member = board.members[existingMemberIndex]
+            if (member.status !== 'accepted') {
+                member.status = 'accepted'
+                await board.save()
+            }
+        } else {
+            board.members.push({
+                userId: req.user.id,
+                role: 'member',
+                status: 'accepted'
+            })
+            await board.save()
+
+            // Trigger notification to board owner
+            const { createNotification } = require('../utils/notify')
+            await createNotification({
+                recipientId: board.ownerId,
+                senderId: req.user.id,
+                type: 'GENERAL',
+                title: 'New Member Joined',
+                message: `${req.user.username || 'A user'} joined your board "${board.title}" via link`,
+                link: `/board/${board._id}`
+            })
+        }
+
+        res.json({ message: 'Successfully joined board!', boardId: board._id })
+    } catch (err) {
+        next(err)
+    }
+})
+
 //----------------------------------  Get a single board with its lists and cards ------------------------
 // GET /api/boards/:boardId
 
@@ -145,7 +218,13 @@ router.get('/:boardId', authenticate, authorizeBoard, async (req, res,next) => {
     try{
     const List = require('../models/List')
     const Card = require('../models/Card')
-    const board = req.board
+    let board = req.board
+
+    // Lazy generation of inviteToken for legacy boards
+    if (!board.inviteToken) {
+        board.inviteToken = crypto.randomBytes(16).toString('hex')
+        await board.save()
+    }
 
     let lists = await List.find({boardId: board._id}).sort({position: 1})
 
@@ -176,7 +255,12 @@ router.get('/:boardId', authenticate, authorizeBoard, async (req, res,next) => {
     // Populate member details (username & email)
     const populatedBoard = await Board.findById(board._id).populate('members.userId', 'name username email avatar')
 
-    res.json({ ...(populatedBoard ? populatedBoard.toObject() : board.toObject()), lists: listWithCards })
+    const boardObj = populatedBoard ? populatedBoard.toObject() : board.toObject()
+    if (!boardObj.inviteToken) {
+        boardObj.inviteToken = board.inviteToken
+    }
+
+    res.json({ ...boardObj, lists: listWithCards })
 
     } catch (err){
         next(err)

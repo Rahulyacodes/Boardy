@@ -6,6 +6,7 @@ import RegisterPage  from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import BoardPage     from './pages/BoardPage'
 import SettingsPage  from './pages/SettingsPage'
+import InviteLandingPage from './pages/InviteLandingPage'
 import NotFoundPage  from './pages/NotFoundPage'
 
 // protects routes — if not logged in, redirect to login
@@ -20,6 +21,8 @@ function App() {
       <Routes>
         <Route path="/login"    element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/invite" element={<Navigate to="/" replace />} />
+        <Route path="/invite/:inviteToken" element={<InviteLandingPage />} />
         <Route path="/" element={
           <ProtectedRoute>
             <DashboardPage />

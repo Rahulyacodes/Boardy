@@ -160,10 +160,29 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
     }
   }
 
-  const handleCopyBoardLink = () => {
-    navigator.clipboard.writeText(window.location.href)
+  const handleCopyBoardLink = async () => {
+    let token = board?.inviteToken
+    if (!token && board?._id) {
+      try {
+        const freshBoard = await getBoard(board._id)
+        token = freshBoard.data?.inviteToken
+        if (token && onBoardUpdate) {
+          onBoardUpdate(freshBoard.data)
+        }
+      } catch (err) {
+        console.error('Failed to fetch board token:', err)
+      }
+    }
+
+    if (!token) {
+      alert('Unable to copy invite link. Please refresh the page.')
+      return
+    }
+
+    const inviteLink = `${window.location.origin}/invite/${token}`
+    navigator.clipboard.writeText(inviteLink)
     setCopiedLink(true)
-    setTimeout(() => setCopiedLink(false), 2000)
+    setTimeout(() => setCopiedLink(false), 2500)
   }
 
   const getInitials = (name) => {
@@ -181,10 +200,18 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
     return 0
   })
 
+  const currentUserId = user?.id || user?._id
+  const ownerUserId = typeof board?.ownerId === 'object' ? (board?.ownerId?._id || board?.ownerId?.id) : board?.ownerId
+  const isOwner = Boolean(
+    (ownerUserId && currentUserId && ownerUserId.toString() === currentUserId.toString()) ||
+    rawMembers.some(m => {
+      const mId = typeof m.userId === 'object' ? (m.userId?._id || m.userId?.id) : m.userId
+      return mId?.toString() === currentUserId?.toString() && m.role === 'owner'
+    })
+  )
+
   const acceptedMembers = sortedMembers.filter(m => m.status === 'accepted' || !m.status)
   const pendingMembers = sortedMembers.filter(m => m.status === 'pending')
-
-  const isOwner = board?.ownerId === user?.id || rawMembers.some(m => (m.userId?._id || m.userId) === user?.id && m.role === 'owner')
 
   return (
     <header className="w-full px-4 py-3 flex items-center justify-between backdrop-blur-md bg-black/25 border-b border-white/10 text-white z-40 sticky top-0 select-none">
@@ -491,14 +518,26 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
             {/* Share link row */}
             <div className="flex items-center justify-between bg-[#181824] border border-[#323342] rounded-xl px-3 py-2.5 mb-5 text-xs">
               <div className="flex items-center gap-2 text-gray-300">
-                <span>🔗</span>
+                <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
                 <span>Share this board with a link</span>
               </div>
               <button
+                type="button"
                 onClick={handleCopyBoardLink}
-                className="text-blue-400 hover:text-blue-300 font-semibold underline text-xs transition-colors"
+                className="text-blue-400 hover:text-blue-300 font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
               >
-                {copiedLink ? 'Copied link!' : 'Create link'}
+                {copiedLink ? (
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Copied link!</span>
+                  </span>
+                ) : (
+                  <span>Copy link</span>
+                )}
               </button>
             </div>
 
@@ -599,11 +638,11 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
                             <select
                               value={m.role}
                               onChange={(e) => handleRoleChange(uId, e.target.value)}
-                              className="bg-[#22232B] border border-[#323342] text-xs text-gray-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer"
+                              className="bg-[#242533] border border-[#404258] hover:border-purple-500/60 text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer font-medium shadow-sm transition-all"
                             >
-                              <option value="member">Member</option>
-                              <option value="viewer">Viewer</option>
-                              <option value="remove">Remove</option>
+                              <option value="member" className="bg-[#1C1C28] text-white">Member</option>
+                              <option value="viewer" className="bg-[#1C1C28] text-white">Viewer</option>
+                              <option value="remove" className="bg-[#1C1C28] text-red-400">Remove from board</option>
                             </select>
                           ) : (
                             <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white/10 text-gray-300 capitalize flex items-center gap-1">

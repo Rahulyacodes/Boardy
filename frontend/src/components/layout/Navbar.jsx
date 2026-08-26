@@ -171,13 +171,10 @@ function Navbar({ onSearch }) {
         onClick={() => navigate('/')}
         className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity"
       >
-        <div className="w-7 h-7 bg-purple-600 rounded-md flex items-center justify-center p-1 shadow-sm">
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <rect x="4" y="4" width="6" height="16" rx="1.5" />
-            <rect x="14" y="4" width="6" height="10" rx="1.5" />
-          </svg>
+        <div className="w-7 h-7 bg-gradient-to-tr from-purple-600 to-indigo-500 rounded-lg flex items-center justify-center p-1 shadow-md shadow-purple-600/30 font-black text-xs text-white">
+          P
         </div>
-        <span className="font-bold text-base tracking-tight text-white">Trello</span>
+        <span className="font-bold text-base tracking-tight text-white">PrimeTeam</span>
       </div>
 
       {/* MIDDLE: Search Field & Dropdown Overlay */}

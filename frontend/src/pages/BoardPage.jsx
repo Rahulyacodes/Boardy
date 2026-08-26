@@ -841,6 +841,9 @@ function BoardPage() {
                 )}
               </div>
             )}
+
+            {/* Trailing Right Margin Spacer matching left padding */}
+            <div className="w-2 shrink-0 h-1 pointer-events-none" />
           </div>
         </div>
       )}

@@ -99,7 +99,17 @@ function BoardPage() {
 
   // Board update handler from BoardNavbar
   const handleBoardUpdate = (updatedBoardData) => {
-    setBoard((prev) => ({ ...prev, ...updatedBoardData }))
+    setBoard((prev) => {
+      if (!prev) return updatedBoardData
+      return {
+        ...prev,
+        ...updatedBoardData,
+        lists: updatedBoardData.lists !== undefined ? updatedBoardData.lists : prev.lists,
+        members: updatedBoardData.members && updatedBoardData.members.length > 0 && typeof updatedBoardData.members[0].userId === 'object'
+          ? updatedBoardData.members
+          : prev.members
+      }
+    })
   }
 
   // List Handlers

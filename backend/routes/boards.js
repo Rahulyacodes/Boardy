@@ -281,7 +281,7 @@ router.patch('/:boardId', authenticate, authorizeBoard, async (req, res, next) =
             req.board._id,
             updates,
             { new: true }
-        )
+        ).populate('members.userId', 'name username email avatar').populate('ownerId', 'name username email avatar')
         res.json(updatedBoard)
     } catch (err) {
         next(err)

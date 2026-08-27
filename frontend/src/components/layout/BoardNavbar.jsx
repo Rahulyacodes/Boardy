@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { updateBoard, deleteBoard, inviteMember, removeMember, updateMemberRole, getBoard } from '../../api'
+import { updateBoard, deleteBoard, inviteMember, removeMember, updateMemberRole, getBoard, leaveBoard } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { getDiceBearAvatar } from '../../utils/avatars'
 
@@ -33,8 +33,14 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
   const [shareMsg, setShareMsg] = useState({ text: '', type: '' })
   const [copiedLink, setCopiedLink] = useState(false)
 
+  // Leave board states
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [leaveError, setLeaveError] = useState('')
+
   const dropdownRef = useRef(null)
   const filterRef = useRef(null)
+  const leaveModalRef = useRef(null)
 
   useEffect(() => {
     setTitleText(board?.title || '')
@@ -54,6 +60,25 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Close leave modal when clicking anywhere outside modal content
+  useEffect(() => {
+    if (!leaveModalOpen) return
+    function handleOutsideClick(e) {
+      if (leaveModalRef.current && !leaveModalRef.current.contains(e.target)) {
+        setLeaveModalOpen(false)
+      }
+    }
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleOutsideClick)
+      document.addEventListener('touchstart', handleOutsideClick)
+    }, 0)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('touchstart', handleOutsideClick)
+    }
+  }, [leaveModalOpen])
 
   const handleSaveTitle = async () => {
     if (!titleText.trim() || titleText === board.title) {
@@ -96,6 +121,20 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
       navigate('/')
     } catch (err) {
       alert(err.response?.data?.message || 'Error deleting board')
+    }
+  }
+
+  const handleConfirmLeaveBoard = async () => {
+    setLeaving(true)
+    setLeaveError('')
+    try {
+      await leaveBoard(board._id)
+      setLeaveModalOpen(false)
+      navigate('/')
+    } catch (err) {
+      setLeaveError(err.response?.data?.error || err.response?.data?.message || 'Failed to leave board')
+    } finally {
+      setLeaving(false)
     }
   }
 
@@ -444,7 +483,7 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
             setShareModalOpen(true)
             setShareMsg({ text: '', type: '' })
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all text-xs font-semibold text-white shadow-md"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all text-xs font-semibold text-white shadow-md cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -452,11 +491,25 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
           <span>Share</span>
         </button>
 
+        {/* Leave Board Red Button (Placed in middle of Share and Home button) */}
+        <button
+          onClick={() => {
+            setLeaveError('')
+            setLeaveModalOpen(true)
+          }}
+          title="Leave Board"
+          className="p-2 rounded-lg bg-red-500/15 hover:bg-red-600 border border-red-500/30 hover:border-red-500 transition-all text-red-400 hover:text-white shadow-sm flex items-center justify-center cursor-pointer"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+          </svg>
+        </button>
+
         {/* Back to Dashboard shortcut icon */}
         <button
           onClick={() => navigate('/')}
           title="Back to Dashboard"
-          className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all text-white/80"
+          className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all text-white/80 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 00-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -709,6 +762,75 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Leave Board Confirmation Modal */}
+      {leaveModalOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setLeaveModalOpen(false)}
+        >
+          <div
+            ref={leaveModalRef}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#22232B] border border-[#323342] rounded-2xl p-6 w-full max-w-md shadow-2xl text-white my-auto"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0 shadow-sm">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                </svg>
+              </div>
+              <h3 className="text-base font-bold text-white">Leave Board</h3>
+            </div>
+
+            {leaveError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400 leading-relaxed">
+                {leaveError}
+              </div>
+            )}
+
+            <p className="text-xs text-gray-300 mb-4 leading-relaxed">
+              Are you sure you want to leave <span className="font-semibold text-white">"{board?.title}"</span>? You will lose access to this workspace board.
+            </p>
+
+            <div className="mb-6 flex items-start gap-2.5 bg-[#161620] border border-[#2B2B3A] p-3 rounded-xl">
+              <svg className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-[11px] text-gray-300 leading-relaxed">
+                All your created cards, comments, and activity history will be kept intact.
+              </span>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setLeaveModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={leaving}
+                onClick={handleConfirmLeaveBoard}
+                className="px-5 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/25 flex items-center gap-2 cursor-pointer"
+              >
+                {leaving ? (
+                  <span>Leaving...</span>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                    </svg>
+                    <span>Leave Board</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

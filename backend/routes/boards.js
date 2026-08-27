@@ -403,6 +403,71 @@ router.delete('/:boardId/members/:userId', authenticate, authorizeBoard, require
     }
 })
 
+//---------------------------------------- Leave Board route ------------------------------------------
+// POST /api/boards/:boardId/leave
+router.post('/:boardId/leave', authenticate, authorizeBoard, async (req, res, next) => {
+    try {
+        const board = req.board
+        const userId = req.user.id
+        const { createNotification } = require('../utils/notify')
+
+        // Check if user is owner
+        const ownerIdStr = board.ownerId._id ? board.ownerId._id.toString() : board.ownerId.toString()
+        if (ownerIdStr === userId) {
+            const err = new Error('As the board owner, you cannot leave the board. You can delete the board or transfer ownership.')
+            err.status = 400
+            return next(err)
+        }
+
+        // Remove user from members array
+        const initialMemberCount = board.members.length
+        board.members = board.members.filter(m => {
+            const mId = m.userId._id ? m.userId._id.toString() : m.userId.toString()
+            return mId !== userId
+        })
+
+        if (board.members.length === initialMemberCount) {
+            const err = new Error('You are not a member of this board')
+            err.status = 400
+            return next(err)
+        }
+
+        await board.save()
+
+        // Get all recipient IDs: remaining accepted members + owner
+        const recipientIds = new Set()
+        recipientIds.add(ownerIdStr)
+
+        board.members.forEach(m => {
+            if (m.userId && (m.status === 'accepted' || !m.status)) {
+                const idStr = m.userId._id ? m.userId._id.toString() : m.userId.toString()
+                if (idStr !== userId) {
+                    recipientIds.add(idStr)
+                }
+            }
+        })
+
+        // Notify all remaining members and owner that user left
+        const leaverName = req.user.name || req.user.username || 'A member'
+        for (const recipientId of recipientIds) {
+            if (recipientId !== userId) {
+                await createNotification({
+                    recipientId,
+                    senderId: userId,
+                    type: 'GENERAL',
+                    title: 'Member Left Board',
+                    message: `${leaverName} left board "${board.title}"`,
+                    link: `/board/${board._id}`
+                })
+            }
+        }
+
+        res.json({ message: 'Successfully left the board' })
+    } catch (err) {
+        next(err)
+    }
+})
+
 //---------------------------------------- Update Member Role route ------------------------------------------
 // PATCH /api/boards/:boardId/members/:userId
 router.patch('/:boardId/members/:userId', authenticate, authorizeBoard, requireOwner, async (req, res, next) => {

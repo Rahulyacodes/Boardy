@@ -18,6 +18,8 @@ import BoardNavbar from '../components/layout/BoardNavbar'
 import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
 import CardDetailModal, { getDueDateStatus, renderDueIcon } from '../components/board/CardDetailModal'
+import BoardChatPanel from '../components/board/BoardChatPanel'
+import { io } from 'socket.io-client'
 
 
 
@@ -31,6 +33,10 @@ function BoardPage() {
 
   // Floating dock tab: 'board' or 'planner'
   const [activeTab, setActiveTab] = useState('board')
+
+  // Chat state: open/closed and unread badge count
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Adding new list state
   const [isAddingList, setIsAddingList] = useState(false)
@@ -96,6 +102,30 @@ function BoardPage() {
       fetchBoardData()
     }
   }, [boardId])
+
+  // Background socket listener for unread messages badge counter
+  useEffect(() => {
+    if (!boardId) return
+
+    const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'
+    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] })
+
+    socket.on('connect', () => {
+      socket.emit('join_board', boardId)
+    })
+
+    socket.on('receive_message', (msg) => {
+      const senderId = msg.senderId?._id || msg.senderId
+      if (!isChatOpen && senderId !== user?._id) {
+        setUnreadCount((prev) => prev + 1)
+      }
+    })
+
+    return () => {
+      socket.emit('leave_board', boardId)
+      socket.disconnect()
+    }
+  }, [boardId, isChatOpen, user?._id])
 
   // Board update handler from BoardNavbar
   const handleBoardUpdate = (updatedBoardData) => {
@@ -474,20 +504,21 @@ function BoardPage() {
         </div>
       )}
 
-      {/* Content Body */}
-      {activeTab === 'planner' ? (
-        <div className="relative z-10 flex-1">
-          <PlannerView
-            onOpenBoard={(targetBoardId) => {
-              setActiveTab('board')
-              if (targetBoardId !== boardId) {
-                navigate(`/board/${targetBoardId}`)
-              }
-            }}
-          />
-        </div>
-      ) : loading ? (
-        <div className="flex-1 flex items-center justify-center relative z-10">
+      {/* Content Body with Split Screen Chat Panel */}
+      <div className="relative z-10 flex-1 flex overflow-hidden w-full">
+        {/* Main Board / Planner View */}
+        <div className="flex-1 overflow-x-auto min-w-0 transition-all duration-300">
+          {activeTab === 'planner' ? (
+            <PlannerView
+              onOpenBoard={(targetBoardId) => {
+                setActiveTab('board')
+                if (targetBoardId !== boardId) {
+                  navigate(`/board/${targetBoardId}`)
+                }
+              }}
+            />
+          ) : loading ? (
+            <div className="h-full flex items-center justify-center">
           <div className="bg-black/40 backdrop-blur-md px-6 py-4 rounded-xl text-white font-medium text-sm flex items-center gap-3">
             <svg className="w-5 h-5 animate-spin text-purple-400" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -857,6 +888,16 @@ function BoardPage() {
           </div>
         </div>
       )}
+        </div>
+
+        {/* Right Side Chat Screen */}
+        {isChatOpen && (
+          <BoardChatPanel
+            board={board}
+            onClose={() => setIsChatOpen(false)}
+          />
+        )}
+      </div>
 
       {/* Card Detail Modal (Description, Labels, Due Date, Checklist, Attachments, Comments) */}
       {editingCard && (
@@ -936,6 +977,29 @@ function BoardPage() {
 
           </div>
         </div>
+      )}
+
+      {/* Floating Chat Launcher Button (Bottom Right) */}
+      {!isChatOpen && (
+        <button
+          onClick={() => {
+            setIsChatOpen(true)
+            setUnreadCount(0)
+          }}
+          className="fixed bottom-10 right-14 z-40 bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 transition-all hover:scale-105 active:scale-95 border border-purple-400/40 cursor-pointer group backdrop-blur-md w-auto"
+          title="Open Board Chat"
+        >
+          <svg className="w-5 h-5 text-white shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+          </svg>
+          <span className="text-xs font-bold text-white hidden sm:inline group-hover:underline tracking-wide">Chat</span>
+
+          {unreadCount > 0 && (
+            <span className="absolute -top-2.5 -right-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-black min-w-[22px] h-5 px-1.5 rounded-full flex items-center justify-center border-2 border-[#14141D] shadow-xl leading-none animate-pulse z-50">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
       )}
 
       {/* Edit List Modal (Name & Serial Number Order) */}

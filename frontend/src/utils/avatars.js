@@ -15,14 +15,18 @@ export const BOT_SEEDS = [
 
 // Generate DiceBear Bottts Neutral SVG Data URI string
 export const getDiceBearAvatar = (seedStr = 'User') => {
+  if (!seedStr) seedStr = 'User'
+  if (typeof seedStr === 'string' && (seedStr.startsWith('http://') || seedStr.startsWith('https://') || seedStr.startsWith('data:image'))) {
+    return seedStr
+  }
   try {
     const avatar = createAvatar(botttsNeutral, {
-      seed: seedStr,
+      seed: String(seedStr),
       radius: 12
     })
     return avatar.toDataUri()
   } catch (err) {
     console.error('Error generating DiceBear avatar:', err)
-    return null
+    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="%238B5CF6"/><text x="16" y="21" font-size="14" font-weight="bold" text-anchor="middle" fill="white">U</text></svg>'
   }
 }

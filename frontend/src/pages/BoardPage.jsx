@@ -986,7 +986,7 @@ function BoardPage() {
             setIsChatOpen(true)
             setUnreadCount(0)
           }}
-          className="fixed bottom-10 right-14 z-40 bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 transition-all hover:scale-105 active:scale-95 border border-purple-400/40 cursor-pointer group backdrop-blur-md w-auto"
+          className="fixed bottom-10 right-14 z-40 bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-1 transition-all hover:scale-105 active:scale-95 border border-purple-400/40 cursor-pointer group backdrop-blur-md w-auto"
           title="Open Board Chat"
         >
           <svg className="w-5 h-5 text-white shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

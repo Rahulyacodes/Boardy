@@ -86,3 +86,5 @@ export const deleteCardComment = (commentId) => api.delete(`/comments/${commentI
 // ---- board chat ----
 export const getBoardMessages = (boardId) => api.get(`/boards/${boardId}/chat/messages`)
 export const sendBoardMessage = (boardId, data) => api.post(`/boards/${boardId}/chat/messages`, data)
+export const updateBoardMessage = (boardId, messageId, data) => api.put(`/boards/${boardId}/chat/messages/${messageId}`, data)
+export const deleteBoardMessage = (boardId, messageId) => api.delete(`/boards/${boardId}/chat/messages/${messageId}`)

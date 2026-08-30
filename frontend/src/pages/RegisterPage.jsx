@@ -161,15 +161,11 @@ function RegisterPage() {
         
         {/* Header / Logo */}
         <div className="text-center flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-xl bg-accent-purple/20 border border-accent-purple/40 flex items-center justify-center text-accent-purple mb-1">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <rect x="7" y="7" width="3" height="9" rx="1"/>
-              <rect x="14" y="7" width="3" height="5" rx="1"/>
-            </svg>
+          <div className="w-12 h-12 rounded-xl bg-[#7C6FF7] text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-[#7C6FF7]/40 mb-1">
+            P
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Boardify</h1>
-          <p className="text-sm text-text-muted">
+          <h1 className="text-2xl font-bold tracking-tight text-white">PrimeTeam</h1>
+          <p className="text-sm text-[#8B8B9E]">
             {step === 'details' ? 'Create your workspace to get started' : 'Verify your email to complete registration'}
           </p>
         </div>
@@ -200,7 +196,7 @@ function RegisterPage() {
             
             {/* Username Field */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              <label className="text-xs font-semibold uppercase tracking-wider text-[#8B8B9E]">
                 Username
               </label>
               <input
@@ -210,13 +206,13 @@ function RegisterPage() {
                 onChange={handleChange}
                 placeholder="alice"
                 required
-                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+                className="w-full px-4 py-3 rounded-xl bg-[#0F0F13] border border-[#2A2A35] text-white text-sm placeholder:text-[#8B8B9E]/40 focus:outline-none focus:border-[#7C6FF7] focus:ring-1 focus:ring-[#7C6FF7] transition-all duration-200"
               />
             </div>
 
             {/* Email Field */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              <label className="text-xs font-semibold uppercase tracking-wider text-[#8B8B9E]">
                 Email Address
               </label>
               <input
@@ -226,13 +222,13 @@ function RegisterPage() {
                 onChange={handleChange}
                 placeholder="alice@gmail.com"
                 required
-                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+                className="w-full px-4 py-3 rounded-xl bg-[#0F0F13] border border-[#2A2A35] text-white text-sm placeholder:text-[#8B8B9E]/40 focus:outline-none focus:border-[#7C6FF7] focus:ring-1 focus:ring-[#7C6FF7] transition-all duration-200"
               />
             </div>
 
             {/* Password Field */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              <label className="text-xs font-semibold uppercase tracking-wider text-[#8B8B9E]">
                 Password
               </label>
               <input
@@ -242,7 +238,7 @@ function RegisterPage() {
                 onChange={handleChange}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+                className="w-full px-4 py-3 rounded-xl bg-[#0F0F13] border border-[#2A2A35] text-white text-sm placeholder:text-[#8B8B9E]/40 focus:outline-none focus:border-[#7C6FF7] focus:ring-1 focus:ring-[#7C6FF7] transition-all duration-200"
               />
             </div>
 
@@ -250,7 +246,7 @@ function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-accent-purple/20 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-[#7C6FF7] hover:bg-[#6C5CE7] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#7C6FF7]/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -274,7 +270,7 @@ function RegisterPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              <label className="text-xs font-semibold uppercase tracking-wider text-[#8B8B9E]">
                 6-Digit Verification OTP
               </label>
               <input
@@ -284,14 +280,14 @@ function RegisterPage() {
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                 placeholder="123456"
                 required
-                className="w-full text-center text-2xl font-mono tracking-widest px-4 py-3 rounded-xl bg-bg-primary border border-accent-purple/50 text-white placeholder:text-text-muted/30 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+                className="w-full text-center text-2xl font-mono tracking-widest px-4 py-3 rounded-xl bg-[#0F0F13] border border-[#7C6FF7]/50 text-white placeholder:text-[#8B8B9E]/30 focus:outline-none focus:border-[#7C6FF7] focus:ring-1 focus:ring-[#7C6FF7] transition-all duration-200"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full mt-1 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-accent-purple/20 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full mt-1 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-[#7C6FF7] hover:bg-[#6C5CE7] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#7C6FF7]/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -318,7 +314,7 @@ function RegisterPage() {
                 type="button"
                 disabled={resendCooldown > 0 || loading}
                 onClick={handleResendOtp}
-                className="text-accent-purple hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+                className="text-[#7C6FF7] hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
               >
                 {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend Code'}
               </button>
@@ -328,9 +324,9 @@ function RegisterPage() {
 
         {/* Divider */}
         <div className="flex items-center gap-3 my-1">
-          <div className="flex-1 h-px bg-bg-border" />
-          <span className="text-xs text-text-muted uppercase tracking-wider font-medium">or</span>
-          <div className="flex-1 h-px bg-bg-border" />
+          <div className="flex-1 h-px bg-[#2A2A35]" />
+          <span className="text-xs text-[#8B8B9E] uppercase tracking-wider font-medium">or</span>
+          <div className="flex-1 h-px bg-[#2A2A35]" />
         </div>
 
         {/* Official Google OAuth Component */}
@@ -346,9 +342,9 @@ function RegisterPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-text-muted mt-1">
+        <p className="text-center text-sm text-[#8B8B9E] mt-1">
           Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-accent-purple hover:underline hover:text-accent-purple-hover transition-colors">
+          <Link to="/login" className="font-semibold text-[#7C6FF7] hover:underline hover:text-purple-300 transition-colors">
             Sign in
           </Link>
         </p>

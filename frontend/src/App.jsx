@@ -10,10 +10,10 @@ import LandingPage   from './pages/LandingPage'
 import InviteLandingPage from './pages/InviteLandingPage'
 import NotFoundPage  from './pages/NotFoundPage'
 
-// protects routes — if not logged in, redirect to login
+// protects routes — if not logged in, redirect to landing page
 function ProtectedRoute({ children }) {
   const { user } = useAuth()
-  return user ? children : <Navigate to="/login" />
+  return user ? children : <Navigate to="/landing" replace />
 }
 
 // Smart home route: if logged in -> Dashboard, else -> Landing Page

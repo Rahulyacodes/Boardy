@@ -13,6 +13,7 @@ function Navbar({ onSearch }) {
   const [announceOpen, setAnnounceOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [invitesOpen, setInvitesOpen] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   // Notifications state
   const [notifications, setNotifications] = useState([])
@@ -153,9 +154,15 @@ function Navbar({ onSearch }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleLogout = () => {
+  const handleLogoutClick = () => {
+    setProfileOpen(false)
+    setShowLogoutConfirm(true)
+  }
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false)
     logoutUser()
-    navigate('/login')
+    navigate('/landing')
   }
 
   const handleSearchSubmit = (e) => {
@@ -597,8 +604,8 @@ function Navbar({ onSearch }) {
 
               {/* Logout button */}
               <button
-                onClick={handleLogout}
-                className="w-full text-left px-4 py-2 hover:bg-red-500/20 text-red-400 font-semibold transition-colors flex items-center justify-between"
+                onClick={handleLogoutClick}
+                className="w-full text-left px-4 py-2 hover:bg-red-500/20 text-red-400 font-semibold transition-colors flex items-center justify-between cursor-pointer"
               >
                 <span>Log out</span>
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -609,6 +616,52 @@ function Navbar({ onSearch }) {
           )}
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn select-none">
+          <div className="bg-[#1C1C24] border border-[#2A2A35] rounded-2xl w-full max-w-sm p-6 shadow-2xl text-white flex flex-col gap-4">
+            
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center shrink-0">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">Log out of PrimeTeam?</h3>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 leading-relaxed bg-[#121218] border border-[#282838] rounded-xl p-3">
+              You will need to sign back in to access your boards, tasks, and workspaces.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmLogout}
+                className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-lg shadow-red-600/30 flex items-center gap-1.5"
+              >
+                <span>Log Out</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17 16l4-4m0 0l-4-4m4 4H7"/>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </nav>
   )
 }

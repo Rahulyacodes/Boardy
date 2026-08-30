@@ -85,7 +85,7 @@ export function getDueDateStatus(dueDateStr, isCompleted) {
     return {
       status: 'overdue',
       text: `Overdue • ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
-      badgeClass: 'bg-red-500/20 text-red-300 border-red-500/40 font-bold',
+      badgeClass: 'bg-red-500/25 text-red-300 border-red-500/60 font-bold animate-overdue-blink',
       iconType: 'overdue'
     }
   }

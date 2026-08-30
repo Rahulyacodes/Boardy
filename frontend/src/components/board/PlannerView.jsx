@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getBoards, getBoard, updateCard } from '../../api'
 import { useAuth } from '../../context/AuthContext'
+import { getDueDateStatus, renderDueIcon } from './CardDetailModal'
 
 // Helper for local date string YYYY-MM-DD (avoids ISO/UTC timezone off-by-one shifts)
 const getLocalDateString = (d) => {
@@ -1150,11 +1151,16 @@ function PlannerCardItem({ card, undoState, onCardClick, onToggleComplete, onUnd
           {card.boardTitle}
         </span>
 
-        {card.dueDate && (
-          <span className="font-mono text-gray-400">
-            {new Date(card.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-          </span>
-        )}
+        {card.dueDate && (() => {
+          const dueInfo = getDueDateStatus(card.dueDate, isDone)
+          if (!dueInfo) return null
+          return (
+            <span className={`flex items-center gap-1 border rounded px-1.5 py-0.5 text-[9px] shadow-sm ${dueInfo.badgeClass}`}>
+              {renderDueIcon(dueInfo.iconType)}
+              <span>{dueInfo.text}</span>
+            </span>
+          )
+        })()}
       </div>
 
       {/* 2-Second Undo Popup Bar Below Card */}

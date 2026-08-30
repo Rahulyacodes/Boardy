@@ -224,31 +224,42 @@ function SettingsPage() {
         <div className="flex border-b border-[#2A2A38] mb-6 gap-2">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`pb-3 px-4 font-semibold text-xs transition-all relative cursor-pointer ${
+            className={`pb-3 px-4 font-semibold text-xs transition-all relative cursor-pointer flex items-center gap-2 ${
               activeTab === 'profile'
                 ? 'text-purple-400 border-b-2 border-purple-500'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            👤 Profile Details
+            <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+            <span>Profile Details</span>
           </button>
 
           <button
             onClick={() => setActiveTab('security')}
-            className={`pb-3 px-4 font-semibold text-xs transition-all relative cursor-pointer ${
+            className={`pb-3 px-4 font-semibold text-xs transition-all relative cursor-pointer flex items-center gap-2 ${
               activeTab === 'security'
                 ? 'text-purple-400 border-b-2 border-purple-500'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            🔒 Security & Password
+            <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            <span>Security & Password</span>
           </button>
         </div>
 
         {/* TAB 1: Profile Details & Avatar Selector */}
         {activeTab === 'profile' && (
           <div className="bg-[#171722] border border-[#2A2A38] rounded-2xl p-6 shadow-lg animate-fadeIn">
-            <h2 className="text-lg font-bold text-white mb-1">Profile Details</h2>
+            <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+              <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+              <span>Profile Details</span>
+            </h2>
             <p className="text-xs text-gray-400 mb-6">
               Select your profile avatar, display name, and username handle.
             </p>
@@ -261,7 +272,15 @@ function SettingsPage() {
                     : 'bg-red-500/10 border-red-500/30 text-red-400'
                 }`}
               >
-                <span>{profileMsg.type === 'success' ? '✅' : '⚠️'}</span>
+                {profileMsg.type === 'success' ? (
+                  <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                )}
                 <span>{profileMsg.text}</span>
               </div>
             )}
@@ -300,7 +319,9 @@ function SettingsPage() {
                         </span>
                         {isSelected && (
                           <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow">
-                            ✓
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
                           </div>
                         )}
                       </button>
@@ -354,9 +375,12 @@ function SettingsPage() {
                       setNewEmail('')
                       setEmailOtp('')
                     }}
-                    className="text-xs font-semibold text-purple-400 hover:text-purple-300 hover:underline cursor-pointer transition-colors"
+                    className="text-xs font-semibold text-purple-400 hover:text-purple-300 hover:underline cursor-pointer transition-colors flex items-center gap-1.5"
                   >
-                    ✏️ Change Primary Email
+                    <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                    </svg>
+                    <span>Change Primary Email</span>
                   </button>
                 </div>
                 <div className="relative flex items-center">
@@ -366,8 +390,11 @@ function SettingsPage() {
                     disabled
                     className="w-full bg-[#0B0B0E] border border-[#22222E] rounded-xl px-4 py-3 text-sm text-gray-300 cursor-not-allowed font-mono"
                   />
-                  <span className="absolute right-4 text-xs font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    Verified ✓
+                  <span className="absolute right-4 text-xs font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <span>Verified</span>
+                    <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
                   </span>
                 </div>
               </div>
@@ -392,14 +419,16 @@ function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowEmailChangeModal(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold transition-colors"
+                className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg font-bold transition-colors cursor-pointer"
               >
                 ✕
               </button>
 
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400 font-bold text-lg">
-                  ✉️
+                <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">
+                  <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-white">Update Primary Email</h3>
@@ -478,7 +507,7 @@ function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => { setEmailOtpStep('request'); setEmailChangeMsg({ type: '', text: '' }) }}
-                      className="text-gray-400 hover:text-white transition-colors"
+                      className="text-gray-400 hover:text-white transition-colors cursor-pointer"
                     >
                       ← Change Email
                     </button>
@@ -508,7 +537,12 @@ function SettingsPage() {
         {/* TAB 2: Security & Password */}
         {activeTab === 'security' && (
           <div className="bg-[#171722] border border-[#2A2A38] rounded-2xl p-6 shadow-lg animate-fadeIn">
-            <h2 className="text-lg font-bold text-white mb-1">Security & Password</h2>
+            <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+              <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              <span>Security & Password</span>
+            </h2>
             <p className="text-xs text-gray-400 mb-6">
               Update your login password to keep your account safe and secure.
             </p>
@@ -521,7 +555,15 @@ function SettingsPage() {
                     : 'bg-red-500/10 border-red-500/30 text-red-400'
                 }`}
               >
-                <span>{securityMsg.type === 'success' ? '✅' : '⚠️'}</span>
+                {securityMsg.type === 'success' ? (
+                  <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                )}
                 <span>{securityMsg.text}</span>
               </div>
             )}

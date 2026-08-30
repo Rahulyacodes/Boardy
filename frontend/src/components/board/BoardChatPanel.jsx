@@ -197,6 +197,43 @@ function BoardChatPanel({ board, onClose, onNewMessageReceived }) {
     }, 50)
   }
 
+  // Smart Date + Time timestamp formatter (Today: "15:04", Yesterday: "Yesterday 15:04", Past: "Aug 28, 15:04")
+  const formatMessageTimestamp = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    const now = new Date()
+
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    const isToday =
+      date.getDate() === now.getDate() &&
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear()
+
+    if (isToday) {
+      return timeStr
+    }
+
+    const yesterday = new Date(now)
+    yesterday.setDate(now.getDate() - 1)
+    const isYesterday =
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear()
+
+    if (isYesterday) {
+      return `Yesterday ${timeStr}`
+    }
+
+    if (date.getFullYear() === now.getFullYear()) {
+      const monthDayStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      return `${monthDayStr}, ${timeStr}`
+    }
+
+    const fullDateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+    return `${fullDateStr}, ${timeStr}`
+  }
+
   // 4. Send Message Form Handler
   const handleSend = async (e) => {
     e.preventDefault()
@@ -468,10 +505,7 @@ function BoardChatPanel({ board, onClose, onNewMessageReceived }) {
                     </span>
                     <span className="text-[9px] text-gray-500 font-mono">
                       {msg.isEdited && <span className="text-purple-400/80 font-semibold mr-0.5">edited</span>}
-                      {new Date(msg.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      {formatMessageTimestamp(msg.createdAt)}
                     </span>
 
                     {/* Action Bar (Reply button for everyone & 3-Dots Menu for owner) */}

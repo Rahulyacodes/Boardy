@@ -524,7 +524,12 @@ function Navbar({ onSearch }) {
 
           {helpOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-[#1C1C24] border border-[#2A2A35] rounded-xl p-3 shadow-2xl z-50 text-xs text-gray-200">
-              <h4 className="font-bold text-sm mb-1 text-white">Help & Support ❓</h4>
+              <h4 className="font-bold text-sm mb-1 text-white flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Help & Support</span>
+              </h4>
               <p className="text-gray-400 mb-2">Find guides, shortcuts, and contact assistance.</p>
               <span className="text-[10px] text-purple-400 font-semibold">Content coming soon</span>
             </div>

@@ -39,3 +39,34 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #7C6FF7;
 }
+
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.4);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.8), 0 0 10px rgba(124, 111, 247, 0.6);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.1) translateY(15px);
+  }
+}
+
+.animate-twinkle {
+  animation: twinkle var(--twinkle-duration, 3s) infinite ease-in-out var(--twinkle-delay, 0s);
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 8s infinite ease-in-out;
+}

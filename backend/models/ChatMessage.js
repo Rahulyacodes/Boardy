@@ -30,6 +30,10 @@ const ChatMessageSchema = new mongoose.Schema(
     },
     editedAt: {
       type: Date
+    },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ChatMessage'
     }
   },
   { timestamps: true }

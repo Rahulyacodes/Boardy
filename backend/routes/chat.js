@@ -17,6 +17,11 @@ router.get('/:boardId/chat/messages', authenticate, authorizeBoard, async (req, 
       .limit(limit)
       .populate('senderId', 'name username email avatar')
       .populate('mentions', 'name username email avatar')
+      .populate({
+        path: 'replyTo',
+        select: 'text senderId createdAt',
+        populate: { path: 'senderId', select: 'name username email avatar' }
+      })
 
     res.json(messages)
   } catch (err) {
@@ -28,7 +33,7 @@ router.get('/:boardId/chat/messages', authenticate, authorizeBoard, async (req, 
 router.post('/:boardId/chat/messages', authenticate, authorizeBoard, async (req, res, next) => {
   try {
     const { boardId } = req.params
-    const { text, mentionUsernames = [] } = req.body
+    const { text, mentionUsernames = [], replyToMessageId } = req.body
     const senderId = req.user.id
 
     if (!text || !text.trim()) {
@@ -48,13 +53,19 @@ router.post('/:boardId/chat/messages', authenticate, authorizeBoard, async (req,
       boardId,
       senderId,
       text: text.trim(),
-      mentions: mentionUserIds
+      mentions: mentionUserIds,
+      replyTo: replyToMessageId || null
     })
 
-    // Populate sender & mentions info before returning and broadcasting
+    // Populate sender, mentions & replyTo info before returning and broadcasting
     const populatedMessage = await ChatMessage.findById(newMessage._id)
       .populate('senderId', 'name username email avatar')
       .populate('mentions', 'name username email avatar')
+      .populate({
+        path: 'replyTo',
+        select: 'text senderId createdAt',
+        populate: { path: 'senderId', select: 'name username email avatar' }
+      })
 
     // Broadcast real-time message via Socket.io to the board room
     const io = req.app.get('io')
@@ -132,6 +143,11 @@ router.put('/:boardId/chat/messages/:messageId', authenticate, authorizeBoard, a
     const populatedMessage = await ChatMessage.findById(message._id)
       .populate('senderId', 'name username email avatar')
       .populate('mentions', 'name username email avatar')
+      .populate({
+        path: 'replyTo',
+        select: 'text senderId createdAt',
+        populate: { path: 'senderId', select: 'name username email avatar' }
+      })
 
     const io = req.app.get('io')
     if (io) {

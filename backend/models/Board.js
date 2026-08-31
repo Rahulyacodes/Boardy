@@ -32,7 +32,7 @@ const boardSchema = new mongoose.Schema({
   ],
   background: {
     type: String,
-    default: 'linear-gradient(135deg, #1E1E24, #2A2A38)'
+    default: 'url("/Backgrounds_PrimeTeam/City/jahanzeb-ahsan-UZGKXvsmuJA-unsplash.jpg")'
   },
   isStarred: {
     type: Boolean,

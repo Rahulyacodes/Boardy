@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getBoards, createBoard } from '../../api'
 import { GRADIENT_PRESETS } from './BoardNavbar'
+import BackgroundPickerModal from '../board/BackgroundPickerModal'
+import { formatBackgroundStyle, DEFAULT_BACKGROUND } from '../../utils/backgrounds'
 
 function BottomDock({ activeTab = 'board', setActiveTab }) {
   const navigate = useNavigate()
@@ -13,7 +15,8 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
   const [loading, setLoading] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
-  const [selectedGradient, setSelectedGradient] = useState(GRADIENT_PRESETS[0].value)
+  const [selectedGradient, setSelectedGradient] = useState(DEFAULT_BACKGROUND)
+  const [showBgModal, setShowBgModal] = useState(false)
 
   useEffect(() => {
     if (boardsModalOpen) {
@@ -142,25 +145,32 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
               <p className="text-sm text-gray-400 text-center py-8">Loading boards...</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 mb-4">
-                {boards.map((b) => (
-                  <div
-                    key={b._id}
-                    onClick={() => {
-                      setBoardsModalOpen(false)
-                      if (setActiveTab) setActiveTab('board')
-                      navigate(`/board/${b._id}`)
-                    }}
-                    className={`rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] border ${
-                      b._id === boardId ? 'border-purple-500 ring-2 ring-purple-500/50' : 'border-white/10'
-                    }`}
-                    style={{ background: b.background || 'linear-gradient(135deg, #7C6FF7, #4ECDC4)', minHeight: '90px' }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-white drop-shadow text-sm">{b.title}</h4>
-                      {b.isStarred && <span className="text-amber-300 text-xs">⭐</span>}
+                {boards.map((b) => {
+                  const bgStyle = formatBackgroundStyle(b.background || 'linear-gradient(135deg, #7C6FF7, #4ECDC4)')
+                  return (
+                    <div
+                      key={b._id}
+                      onClick={() => {
+                        setBoardsModalOpen(false)
+                        if (setActiveTab) setActiveTab('board')
+                        navigate(`/board/${b._id}`)
+                      }}
+                      className={`rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] border relative overflow-hidden flex flex-col justify-between ${
+                        b._id === boardId ? 'border-purple-500 ring-2 ring-purple-500/50' : 'border-white/10'
+                      }`}
+                      style={{
+                        ...bgStyle,
+                        minHeight: '90px'
+                      }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20 pointer-events-none" />
+                      <div className="flex justify-between items-start relative z-10">
+                        <h4 className="font-bold text-white drop-shadow text-sm">{b.title}</h4>
+                        {b.isStarred && <span className="text-amber-300 text-xs">⭐</span>}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
@@ -178,21 +188,18 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
                 />
 
                 <div className="mb-3">
-                  <label className="block text-gray-400 mb-1 font-medium">Select Theme Gradient:</label>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {GRADIENT_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => setSelectedGradient(preset.value)}
-                        className={`w-8 h-8 rounded-full border-2 flex-shrink-0 transition-transform ${
-                          selectedGradient === preset.value ? 'scale-110 border-white ring-2 ring-purple-500' : 'border-white/20'
-                        }`}
-                        style={{ background: preset.value }}
-                        title={preset.name}
-                      />
-                    ))}
-                  </div>
+                  <label className="block text-gray-400 mb-1.5 font-medium">Select Background:</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowBgModal(true)}
+                    className="w-full flex items-center justify-start px-3 py-2 rounded-xl border border-white/10 text-xs font-semibold text-gray-200 hover:border-purple-500 transition-all cursor-pointer overflow-hidden relative"
+                    style={{
+                      ...formatBackgroundStyle(selectedGradient)
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+                    <span className="relative z-10 drop-shadow bg-black/50 px-2 py-0.5 rounded-md">Explore options</span>
+                  </button>
                 </div>
 
                 <div className="flex gap-2 justify-end">
@@ -219,6 +226,25 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
                 <span>+ Create New Board</span>
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Background Picker Modal Overlay */}
+      {showBgModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setShowBgModal(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <BackgroundPickerModal
+              currentBackground={selectedGradient}
+              onSelectBackground={(bg) => {
+                setSelectedGradient(bg)
+                setShowBgModal(false)
+              }}
+              onClose={() => setShowBgModal(false)}
+            />
           </div>
         </div>
       )}

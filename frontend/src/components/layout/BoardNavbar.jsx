@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { updateBoard, deleteBoard, inviteMember, removeMember, updateMemberRole, getBoard, leaveBoard } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { getDiceBearAvatar } from '../../utils/avatars'
+import BackgroundPickerModal from '../board/BackgroundPickerModal'
 
 export const GRADIENT_PRESETS = [
   { name: 'City Sunset', value: 'linear-gradient(135deg, #8B3A1C 0%, #E66820 40%, #1D1D2B 100%)' },
@@ -305,37 +306,34 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
               <span>Rename Board</span>
             </button>
 
-            <button
-              onClick={() => setShowColorPicker(!showColorPicker)}
-              className="w-full text-left px-4 py-2 hover:bg-white/10 flex items-center justify-between transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <svg className="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-23" />
-                </svg>
-                <span>Change Background</span>
-              </div>
-              <span className="text-xs opacity-60">▶</span>
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowColorPicker(!showColorPicker)}
+                className="w-full text-left px-4 py-2 hover:bg-white/10 flex items-center justify-between transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <svg className="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-23" />
+                  </svg>
+                  <span>Change Background</span>
+                </div>
+                <span className="text-xs opacity-60">▶</span>
+              </button>
 
-            {/* Gradient background options list */}
-            {showColorPicker && (
-              <div className="px-3 py-2 bg-[#121218] my-1 mx-2 rounded-lg grid grid-cols-1 gap-1.5 border border-[#2A2A35]">
-                {GRADIENT_PRESETS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    onClick={() => handleChangeBackground(preset.value)}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-white/10 text-xs text-left transition-all"
-                  >
-                    <div
-                      className="w-4 h-4 rounded-full border border-white/20"
-                      style={{ background: preset.value }}
-                    />
-                    <span>{preset.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+              {/* Flyout Side Popover for Background Picker */}
+              {showColorPicker && (
+                <div className="absolute left-full top-0 ml-2 z-[100] drop-shadow-2xl">
+                  <BackgroundPickerModal
+                    currentBackground={board?.background}
+                    onSelectBackground={(bg) => {
+                      handleChangeBackground(bg)
+                      setShowColorPicker(false)
+                    }}
+                    onClose={() => setShowColorPicker(false)}
+                  />
+                </div>
+              )}
+            </div>
 
             <div className="border-t border-[#2A2A35] my-1" />
 

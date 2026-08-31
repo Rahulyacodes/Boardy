@@ -6,13 +6,16 @@ import Navbar from '../components/layout/Navbar'
 import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
 import { GRADIENT_PRESETS } from '../components/layout/BoardNavbar'
+import BackgroundPickerModal from '../components/board/BackgroundPickerModal'
+import { formatBackgroundStyle, DEFAULT_BACKGROUND } from '../utils/backgrounds'
 
 function DashboardPage() {
   const [boards, setBoards] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
-  const [selectedGradient, setSelectedGradient] = useState(GRADIENT_PRESETS[0].value)
+  const [selectedGradient, setSelectedGradient] = useState(DEFAULT_BACKGROUND)
+  const [showBgModal, setShowBgModal] = useState(false)
   const [creating, setCreating] = useState(false)
 
   // Floating dock tab switcher: 'board' or 'planner'
@@ -79,34 +82,38 @@ function DashboardPage() {
           {/* Boards Grid & Left Create Card */}
           {!loading && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {boards.map((board) => (
-                <div
-                  key={board._id}
-                  onClick={() => navigate(`/board/${board._id}`)}
-                  className="rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.03] hover:shadow-2xl border border-white/10 flex flex-col justify-between group"
-                  style={{
-                    background: board.background || 'linear-gradient(135deg, #7C6FF7, #4ECDC4)',
-                    minHeight: '130px'
-                  }}
-                >
-                  <div className="flex justify-between items-start">
-                    <h3 className="font-bold text-white text-base drop-shadow-md group-hover:underline">
-                      {board.title}
-                    </h3>
-                    {board.isStarred && (
-                      <span className="bg-black/40 p-1.5 rounded-lg text-amber-300 backdrop-blur-md border border-amber-500/30 shadow-sm" title="Starred">
-                        <svg className="w-3.5 h-3.5 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
-                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                        </svg>
-                      </span>
-                    )}
-                  </div>
+              {boards.map((board) => {
+                const bgStyle = formatBackgroundStyle(board.background || 'linear-gradient(135deg, #7C6FF7, #4ECDC4)')
+                return (
+                  <div
+                    key={board._id}
+                    onClick={() => navigate(`/board/${board._id}`)}
+                    className="rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.03] hover:shadow-2xl border border-white/10 flex flex-col justify-between group relative overflow-hidden"
+                    style={{
+                      ...bgStyle,
+                      minHeight: '130px'
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20 pointer-events-none" />
+                    <div className="flex justify-between items-start relative z-10">
+                      <h3 className="font-bold text-white text-base drop-shadow-md group-hover:underline">
+                        {board.title}
+                      </h3>
+                      {board.isStarred && (
+                        <span className="bg-black/40 p-1.5 rounded-lg text-amber-300 backdrop-blur-md border border-amber-500/30 shadow-sm" title="Starred">
+                          <svg className="w-3.5 h-3.5 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
+                            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-white/80 font-medium">
-                    <span>Open board →</span>
+                    <div className="flex items-center justify-between text-[11px] text-white/90 font-medium relative z-10 drop-shadow">
+                      <span>Open board →</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               {/* Create New Board Form / Left Card */}
               {showForm ? (
@@ -132,30 +139,25 @@ function DashboardPage() {
                     }}
                   />
 
-                  {/* Theme picker */}
+                  {/* Theme picker trigger button */}
                   <div>
-                    <span className="text-[10px] text-gray-400 font-semibold mb-1 block">Theme:</span>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1">
-                      {GRADIENT_PRESETS.map((preset) => (
-                        <button
-                          key={preset.name}
-                          type="button"
-                          onClick={() => setSelectedGradient(preset.value)}
-                          className={`w-6 h-6 rounded-full border border-white/30 flex-shrink-0 transition-transform ${
-                            selectedGradient === preset.value ? 'scale-125 ring-2 ring-purple-500' : ''
-                          }`}
-                          style={{ background: preset.value }}
-                          title={preset.name}
-                        />
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowBgModal(true)}
+                      className="w-full flex items-center justify-start px-3 py-1.5 rounded-xl border border-white/10 text-xs font-semibold text-gray-200 hover:border-purple-500 transition-all cursor-pointer"
+                      style={{
+                        ...formatBackgroundStyle(selectedGradient)
+                      }}
+                    >
+                      <span className="drop-shadow bg-black/50 px-2 py-0.5 rounded-md">Explore options</span>
+                    </button>
                   </div>
 
                   <div className="flex gap-2 mt-1">
                     <button
                       type="submit"
                       disabled={creating}
-                      className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                      className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                       style={{ backgroundColor: 'var(--color-accent-purple)', color: 'white' }}
                     >
                       {creating ? 'Creating...' : 'Create'}
@@ -166,7 +168,7 @@ function DashboardPage() {
                         setShowForm(false)
                         setNewTitle('')
                       }}
-                      className="flex-1 py-1.5 rounded-lg text-xs font-medium"
+                      className="flex-1 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
                       style={{
                         backgroundColor: 'var(--color-bg-primary)',
                         border: '1px solid var(--color-bg-border)',
@@ -214,28 +216,23 @@ function DashboardPage() {
 
                   {/* Theme picker */}
                   <div>
-                    <span className="text-[11px] text-gray-400 font-medium mb-2 block">Select Board Theme:</span>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      {GRADIENT_PRESETS.map((preset) => (
-                        <button
-                          key={preset.name}
-                          type="button"
-                          onClick={() => setSelectedGradient(preset.value)}
-                          className={`w-7 h-7 rounded-full border border-white/30 flex-shrink-0 transition-transform ${
-                            selectedGradient === preset.value ? 'scale-125 ring-2 ring-purple-500' : ''
-                          }`}
-                          style={{ background: preset.value }}
-                          title={preset.name}
-                        />
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowBgModal(true)}
+                      className="w-full flex items-center justify-start px-3 py-2 rounded-xl border border-white/10 text-xs font-semibold text-gray-200 hover:border-purple-500 transition-all cursor-pointer"
+                      style={{
+                        ...formatBackgroundStyle(selectedGradient)
+                      }}
+                    >
+                      <span className="drop-shadow bg-black/50 px-2 py-0.5 rounded-md">Explore options</span>
+                    </button>
                   </div>
 
                   <div className="flex gap-2.5 mt-2">
                     <button
                       type="submit"
                       disabled={creating}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer"
                     >
                       {creating ? 'Creating...' : 'Create Board'}
                     </button>
@@ -245,7 +242,7 @@ function DashboardPage() {
                         setShowForm(false)
                         setNewTitle('')
                       }}
-                      className="px-4 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-colors"
+                      className="px-4 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -285,6 +282,25 @@ function DashboardPage() {
 
       {/* Floating Bottom Navigation Dock */}
       <BottomDock activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Background Picker Modal Overlay */}
+      {showBgModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setShowBgModal(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <BackgroundPickerModal
+              currentBackground={selectedGradient}
+              onSelectBackground={(bg) => {
+                setSelectedGradient(bg)
+                setShowBgModal(false)
+              }}
+              onClose={() => setShowBgModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

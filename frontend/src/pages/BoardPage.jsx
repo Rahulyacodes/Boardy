@@ -18,7 +18,7 @@ import BoardNavbar from '../components/layout/BoardNavbar'
 import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
 import CardDetailModal, { getDueDateStatus, renderDueIcon } from '../components/board/CardDetailModal'
-import BoardChatPanel from '../components/board/BoardChatPanel'
+import { formatBackgroundStyle, DEFAULT_BACKGROUND } from '../utils/backgrounds'
 import { io } from 'socket.io-client'
 
 
@@ -472,37 +472,42 @@ function BoardPage() {
     }, 3000)
   }
 
-  // Fallback default gradient
-  const boardBg = board?.background || 'linear-gradient(135deg, #8B3A1C 0%, #E66820 40%, #1D1D2B 100%)'
+  // Fallback default background
+  const boardBg = board?.background || DEFAULT_BACKGROUND
+  const bgStyle = formatBackgroundStyle(boardBg)
 
   return (
-    <div
-      className="min-h-screen flex flex-col transition-all duration-500 bg-cover bg-center relative select-none"
-      style={{ background: boardBg }}
-    >
-      {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] pointer-events-none" />
-
+    <div className="h-screen w-full flex flex-col bg-[#0F0F14] overflow-hidden select-none">
       {/* Main Top Navbar */}
       <Navbar />
 
-      {/* Board Specific Navbar */}
-      <BoardNavbar
-        board={board}
-        onBoardUpdate={handleBoardUpdate}
-        filterMemberId={filterMemberId}
-        setFilterMemberId={setFilterMemberId}
-        filterText={filterText}
-        setFilterText={setFilterText}
-      />
+      {/* Board Workspace Container (Spans from below top app navbar to bottom) */}
+      <div
+        className="flex-1 flex flex-col relative overflow-hidden transition-all duration-500"
+        style={bgStyle}
+      >
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 bg-black/25 pointer-events-none z-0" />
 
-      {/* Read-Only Mode Notice Banner */}
-      {isViewer && (
-        <div className="relative z-20 bg-amber-500/20 border-b border-amber-500/30 backdrop-blur-md px-4 py-2 text-center text-xs text-amber-200 font-semibold flex items-center justify-center gap-2">
-          <span>👁️</span>
-          <span>You are viewing this board in Read-Only mode. Edits, dragging, and additions are restricted.</span>
+        {/* Board Specific Navbar */}
+        <div className="relative z-20">
+          <BoardNavbar
+            board={board}
+            onBoardUpdate={handleBoardUpdate}
+            filterMemberId={filterMemberId}
+            setFilterMemberId={setFilterMemberId}
+            filterText={filterText}
+            setFilterText={setFilterText}
+          />
         </div>
-      )}
+
+        {/* Read-Only Mode Notice Banner */}
+        {isViewer && (
+          <div className="relative z-20 bg-amber-500/20 border-b border-amber-500/30 backdrop-blur-md px-4 py-2 text-center text-xs text-amber-200 font-semibold flex items-center justify-center gap-2">
+            <span>👁️</span>
+            <span>You are viewing this board in Read-Only mode. Edits, dragging, and additions are restricted.</span>
+          </div>
+        )}
 
       {/* Content Body with Split Screen Chat Panel */}
       <div className="relative z-10 flex-1 flex overflow-hidden w-full">
@@ -1068,6 +1073,8 @@ function BoardPage() {
           </div>
         </div>
       )}
+
+      </div>
 
       {/* Bottom Floating Navigation Dock */}
       <BottomDock activeTab={activeTab} setActiveTab={setActiveTab} />

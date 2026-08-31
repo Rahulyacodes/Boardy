@@ -184,15 +184,15 @@ function LoginPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-bg-primary relative overflow-hidden">
       {/* Background glow accents */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-accent-purple/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-accent-teal/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main card */}
       <div className="w-full max-w-md p-8 rounded-2xl bg-bg-surface border border-bg-border shadow-2xl shadow-black/50 backdrop-blur-xl relative z-10 flex flex-col gap-6">
         
         {/* Header / Logo */}
         <div className="text-center flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-xl bg-[#7C6FF7] text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-[#7C6FF7]/40 mb-1">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-purple-600/40 mb-1">
             P
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">PrimeTeam</h1>
@@ -206,7 +206,7 @@ function LoginPage() {
             onClick={() => { setLoginMethod('password'); setError(''); setSuccessMsg('') }}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               loginMethod === 'password'
-                ? 'bg-[#7C6FF7] text-white shadow-md'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                 : 'text-[#8B8B9E] hover:text-white'
             }`}
           >
@@ -217,7 +217,7 @@ function LoginPage() {
             onClick={() => { setLoginMethod('otp'); setOtpStep('request'); setError(''); setSuccessMsg('') }}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               loginMethod === 'otp'
-                ? 'bg-[#7C6FF7] text-white shadow-md'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                 : 'text-[#8B8B9E] hover:text-white'
             }`}
           >
@@ -258,7 +258,7 @@ function LoginPage() {
                 onChange={e => setIdentifier(e.target.value)}
                 placeholder="name@example.com or username"
                 required
-                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+                className="w-full px-4 py-3 rounded-xl bg-[#0F0F16] border border-[#262636] text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all duration-200"
               />
             </div>
 
@@ -270,7 +270,7 @@ function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}
-                  className="text-xs text-accent-purple hover:underline hover:text-accent-purple-hover font-medium transition-colors cursor-pointer"
+                  className="text-xs text-purple-400 hover:underline hover:text-purple-300 font-medium transition-colors cursor-pointer"
                 >
                   Forgot password?
                 </button>
@@ -281,14 +281,14 @@ function LoginPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-200"
+                className="w-full px-4 py-3 rounded-xl bg-[#0F0F16] border border-[#262636] text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all duration-200"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-[#7C6FF7] hover:bg-[#6C5CE7] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#7C6FF7]/25 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-500 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -317,14 +317,14 @@ function LoginPage() {
                   onChange={e => setIdentifier(e.target.value)}
                   placeholder="name@example.com or username"
                   required
-                  className="w-full px-4 py-3 rounded-xl bg-[#0F0F13] border border-[#2A2A35] text-white text-sm placeholder:text-[#8B8B9E]/40 focus:outline-none focus:border-[#7C6FF7] focus:ring-1 focus:ring-[#7C6FF7] transition-all duration-200"
+                  className="w-full px-4 py-3 rounded-xl bg-[#0F0F16] border border-[#262636] text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all duration-200"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-[#7C6FF7] hover:bg-[#6C5CE7] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#7C6FF7]/25 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-500 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -357,14 +357,14 @@ function LoginPage() {
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   placeholder="123456"
                   required
-                  className="w-full text-center text-2xl font-mono tracking-widest px-4 py-3 rounded-xl bg-[#0F0F13] border border-[#7C6FF7]/50 text-white placeholder:text-[#8B8B9E]/30 focus:outline-none focus:border-[#7C6FF7] focus:ring-1 focus:ring-[#7C6FF7] transition-all duration-200"
+                  className="w-full text-center text-2xl font-mono tracking-widest px-4 py-3 rounded-xl bg-[#0F0F16] border border-purple-500/50 text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all duration-200"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading || otp.length !== 6}
-                className="w-full mt-1 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-[#7C6FF7] hover:bg-[#6C5CE7] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#7C6FF7]/25 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full mt-1 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-500 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -391,7 +391,7 @@ function LoginPage() {
                   type="button"
                   disabled={resendCooldown > 0 || loading}
                   onClick={handleResendLoginOtp}
-                  className="text-[#7C6FF7] hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+                  className="text-purple-400 hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer font-medium"
                 >
                   {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend Code'}
                 </button>
@@ -422,7 +422,7 @@ function LoginPage() {
         {/* Footer */}
         <p className="text-center text-sm text-[#8B8B9E] mt-1">
           Don't have an account?{' '}
-          <Link to="/register" className="font-semibold text-[#7C6FF7] hover:underline hover:text-purple-300 transition-colors">
+          <Link to="/register" className="font-semibold text-purple-400 hover:underline hover:text-purple-300 transition-colors">
             Sign up
           </Link>
         </p>

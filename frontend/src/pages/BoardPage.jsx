@@ -18,6 +18,7 @@ import BoardNavbar from '../components/layout/BoardNavbar'
 import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
 import CardDetailModal, { getDueDateStatus, renderDueIcon } from '../components/board/CardDetailModal'
+import BoardChatPanel from '../components/board/BoardChatPanel'
 import { formatBackgroundStyle, DEFAULT_BACKGROUND } from '../utils/backgrounds'
 import { io } from 'socket.io-client'
 

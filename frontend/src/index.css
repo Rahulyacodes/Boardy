@@ -5,8 +5,8 @@
   --color-bg-surface: #1C1C24;
   --color-bg-surface-hover: #252530;
   --color-bg-border: #2A2A35;
-  --color-accent-purple: #7C6FF7;
-  --color-accent-purple-hover: #6C5CE7;
+  --color-accent-purple: #9333EA;
+  --color-accent-purple-hover: #A855F7;
   --color-accent-teal: #4ECDC4;
   --color-text-primary: #FFFFFF;
   --color-text-muted: #8B8B9E;
@@ -22,6 +22,17 @@
     min-height: 100vh;
     margin: 0;
   }
+}
+
+/* Dark mode autofill override for Chrome/Safari/Firefox */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0F0F16 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 /* custom scrollbar */

@@ -198,14 +198,14 @@ function ForgotPasswordModal({ isOpen, onClose }) {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="name@example.com"
                 required
-                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple"
+                className="w-full px-4 py-3 rounded-xl bg-[#0F0F16] border border-[#262636] text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all duration-200"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-accent-purple/20"
+              className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-500 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-purple-600/20"
             >
               {loading ? (
                 <span>Sending OTP...</span>
@@ -227,7 +227,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
                 {/* Live Countdown Badge */}
                 <div className={`text-xs font-medium px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
                   timeLeft > 0 
-                    ? 'bg-accent-purple/10 border-accent-purple/30 text-accent-purple' 
+                    ? 'bg-purple-600/10 border-purple-500/30 text-purple-300' 
                     : 'bg-danger/10 border-danger/30 text-danger'
                 }`}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -245,7 +245,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
                 placeholder="123456"
                 disabled={timeLeft === 0}
                 required
-                className="w-full px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] rounded-xl bg-bg-primary border border-bg-border text-accent-purple placeholder:text-text-muted/20 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] rounded-xl bg-[#0F0F16] border border-[#262636] text-purple-300 placeholder:text-gray-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               />
 
               {timeLeft === 0 ? (
@@ -257,7 +257,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
                     type="button"
                     onClick={handleSendOtp}
                     disabled={loading}
-                    className="text-xs font-semibold text-accent-purple hover:underline cursor-pointer"
+                    className="text-xs font-semibold text-purple-400 hover:underline cursor-pointer"
                   >
                     {loading ? 'Resending...' : 'Resend New OTP Code'}
                   </button>
@@ -267,14 +267,14 @@ function ForgotPasswordModal({ isOpen, onClose }) {
                   Didn't receive the email? Check spam folder or{' '}
                   {resendCooldown > 0 ? (
                     <span className="text-text-muted font-medium">
-                      Resend in <strong className="text-accent-purple font-mono">{formatTime(resendCooldown)}</strong>
+                      Resend in <strong className="text-purple-300 font-mono">{formatTime(resendCooldown)}</strong>
                     </span>
                   ) : (
                     <button
                       type="button"
                       onClick={handleSendOtp}
                       disabled={loading}
-                      className="text-accent-purple hover:underline font-medium cursor-pointer"
+                      className="text-purple-400 hover:underline font-medium cursor-pointer"
                     >
                       {loading ? 'Resending...' : 'Resend Code'}
                     </button>
@@ -294,7 +294,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
               <button
                 type="submit"
                 disabled={loading || otp.length !== 6 || timeLeft === 0}
-                className="w-2/3 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-accent-purple hover:bg-accent-purple-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-accent-purple/20"
+                className="w-2/3 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-500 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-purple-600/20"
               >
                 {loading ? 'Verifying...' : 'Verify OTP'}
               </button>
@@ -315,7 +315,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
                 onChange={e => setNewPassword(e.target.value)}
                 placeholder="At least 6 characters"
                 required
-                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple"
+                className="w-full px-4 py-3 rounded-xl bg-[#0F0F16] border border-[#262636] text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all duration-200"
               />
             </div>
 
@@ -329,7 +329,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
                 onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter new password"
                 required
-                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-bg-border text-text-primary text-sm placeholder:text-text-muted/40 focus:outline-none focus:border-accent-purple focus:ring-1 focus:ring-accent-purple"
+                className="w-full px-4 py-3 rounded-xl bg-[#0F0F16] border border-[#262636] text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all duration-200"
               />
             </div>
 

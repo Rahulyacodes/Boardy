@@ -36,8 +36,8 @@ router.post('/', authenticate, async (req, res, next) => {
 
 //-------------------------- GET /api/boards ----------------------------------
 
-router.get('/', authenticate, async (req, res,next) => {
-    try{
+router.get('/', authenticate, async (req, res, next) => {
+    try {
         const boards = await Board.find({
             members: {
                 $elemMatch: {
@@ -45,11 +45,11 @@ router.get('/', authenticate, async (req, res,next) => {
                     status: { $in: ['accepted', null] }
                 }
             }
-        }).sort({ updatedAt: -1 })        
+        }).sort({ updatedAt: -1 })
 
         res.json(boards)
 
-    } catch(err){
+    } catch (err) {
         next(err)
     }
 })

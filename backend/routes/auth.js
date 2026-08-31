@@ -5,8 +5,27 @@ const User    = require('../models/User')
 const RegistrationOtp = require('../models/RegistrationOtp')
 const authenticate = require('../middleware/authenticate')
 
+const crypto = require('crypto')
+const Board  = require('../models/Board')
+
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET
+
+// Helper function to seed default first board for new user
+const seedFirstBoard = async (userId) => {
+    try {
+        const inviteToken = crypto.randomBytes(16).toString('hex')
+        await Board.create({
+            title: 'Your 1st Board',
+            background: 'url("/Backgrounds_PrimeTeam/City/jahanzeb-ahsan-UZGKXvsmuJA-unsplash.jpg")',
+            ownerId: userId,
+            members: [{ userId, role: 'owner', status: 'accepted' }],
+            inviteToken
+        })
+    } catch (e) {
+        console.error('Failed to seed first board:', e)
+    }
+}
 
 //-------------------------------------------------Registration of a new user --------------------------------------------------------
 router.post('/register', async(req, res, next) => {
@@ -42,6 +61,9 @@ router.post('/register', async(req, res, next) => {
 
         // creating the user object
         const user = await User.create({username, email, passwordHash})
+
+        // Seed "Your 1st Board" for new user
+        await seedFirstBoard(user._id)
 
         // response (never send passwordHash back)
         res.status(201).json({
@@ -187,6 +209,9 @@ router.post('/google', async (req, res, next) => {
             googleId,
             avatar
         })
+
+        // Seed "Your 1st Board" for new user
+        await seedFirstBoard(user._id)
 
         const token = jwt.sign(
             { id: user.id.toString(), username: user.username },
@@ -581,6 +606,9 @@ router.post('/verify-registration-otp', async (req, res, next) => {
             email: pendingReg.email,
             passwordHash: pendingReg.passwordHash
         })
+
+        // Seed "Your 1st Board" for new user
+        await seedFirstBoard(user._id)
 
         // Cleanup pending record
         await RegistrationOtp.deleteOne({ _id: pendingReg._id })

@@ -92,6 +92,9 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
       setIsEditingTitle(false)
     } catch (err) {
       console.error('Error renaming board:', err)
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to rename board')
+      setTitleText(board.title)
+      setIsEditingTitle(false)
     }
   }
 

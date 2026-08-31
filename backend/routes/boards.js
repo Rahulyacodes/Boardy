@@ -12,15 +12,34 @@ router.post('/', authenticate, async (req, res, next) => {
     try{
         const {title, background} = req.body
 
-        if(!title){
+        if(!title || !title.trim()){
             const err = new Error('title is required')
+            err.status = 400
+            return next(err)
+        }
+
+        const cleanTitle = title.trim()
+
+        // Check if board with same title exists for this user (case-insensitive)
+        const existingBoard = await Board.findOne({
+            title: { $regex: new RegExp(`^${cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+            members: {
+                $elemMatch: {
+                    userId: req.user.id,
+                    status: { $in: ['accepted', null] }
+                }
+            }
+        })
+
+        if (existingBoard) {
+            const err = new Error(`A board named "${cleanTitle}" already exists. Please choose a different name.`)
             err.status = 400
             return next(err)
         }
 
        const inviteToken = crypto.randomBytes(16).toString('hex')
        const board = await Board.create({
-        title,
+        title: cleanTitle,
         background: background || 'linear-gradient(135deg, #1E1E24, #2A2A38)',
         ownerId: req.user.id,
         members: [{userId: req.user.id, role: 'owner', status: 'accepted'}],
@@ -273,7 +292,27 @@ router.patch('/:boardId', authenticate, authorizeBoard, async (req, res, next) =
     try {
         const { title, background, isStarred } = req.body
         const updates = {}
-        if (title !== undefined) updates.title = title
+        if (title !== undefined && title.trim() !== '') {
+            const cleanTitle = title.trim()
+            if (cleanTitle !== req.board.title) {
+                const existingBoard = await Board.findOne({
+                    _id: { $ne: req.board._id },
+                    title: { $regex: new RegExp(`^${cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                    members: {
+                        $elemMatch: {
+                            userId: req.user.id,
+                            status: { $in: ['accepted', null] }
+                        }
+                    }
+                })
+                if (existingBoard) {
+                    const err = new Error(`A board named "${cleanTitle}" already exists. Please choose a different name.`)
+                    err.status = 400
+                    return next(err)
+                }
+                updates.title = cleanTitle
+            }
+        }
         if (background !== undefined) updates.background = background
         if (isStarred !== undefined) updates.isStarred = isStarred
 

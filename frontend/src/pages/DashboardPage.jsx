@@ -7,7 +7,7 @@ import BottomDock from '../components/layout/BottomDock'
 import PlannerView from '../components/board/PlannerView'
 import { GRADIENT_PRESETS } from '../components/layout/BoardNavbar'
 import BackgroundPickerModal from '../components/board/BackgroundPickerModal'
-import { formatBackgroundStyle, DEFAULT_BACKGROUND } from '../utils/backgrounds'
+import { formatBackgroundStyle, DEFAULT_BACKGROUND, getNextDefaultBackground } from '../utils/backgrounds'
 
 function DashboardPage() {
   const [boards, setBoards] = useState([])
@@ -15,8 +15,10 @@ function DashboardPage() {
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [selectedGradient, setSelectedGradient] = useState(DEFAULT_BACKGROUND)
+  const [userSelectedBg, setUserSelectedBg] = useState(false)
   const [showBgModal, setShowBgModal] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
 
   // Floating dock tab switcher: 'board' or 'planner'
   const [activeTab, setActiveTab] = useState('board')
@@ -25,26 +27,45 @@ function DashboardPage() {
 
   useEffect(() => {
     getBoards()
-      .then((res) => setBoards(res.data))
+      .then((res) => {
+        setBoards(res.data)
+        if (!userSelectedBg) {
+          setSelectedGradient(getNextDefaultBackground(res.data.length))
+        }
+      })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleOpenForm = () => {
+    if (!userSelectedBg) {
+      setSelectedGradient(getNextDefaultBackground(boards.length))
+    }
+    setShowForm(true)
+  }
 
   const handleCreateBoard = async (e) => {
     e.preventDefault()
     if (!newTitle.trim()) return
     setCreating(true)
+    setCreateError('')
+
+    const bgToUse = userSelectedBg ? selectedGradient : getNextDefaultBackground(boards.length)
 
     try {
       const res = await createBoard({
         title: newTitle.trim(),
-        background: selectedGradient
+        background: bgToUse
       })
-      setBoards((prev) => [res.data, ...prev])
+      const updatedBoards = [res.data, ...boards]
+      setBoards(updatedBoards)
       setNewTitle('')
       setShowForm(false)
+      setUserSelectedBg(false)
+      setSelectedGradient(getNextDefaultBackground(updatedBoards.length))
     } catch (err) {
       console.error(err)
+      setCreateError(err.response?.data?.message || err.response?.data?.error || 'Failed to create board')
     } finally {
       setCreating(false)
     }
@@ -129,7 +150,10 @@ function DashboardPage() {
                     autoFocus
                     type="text"
                     value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
+                    onChange={(e) => {
+                      setNewTitle(e.target.value)
+                      if (createError) setCreateError('')
+                    }}
                     placeholder="Board title..."
                     className="w-full px-3 py-2 rounded-xl text-xs outline-none border focus:border-purple-500"
                     style={{
@@ -138,6 +162,12 @@ function DashboardPage() {
                       color: 'var(--color-text-primary)',
                     }}
                   />
+
+                  {createError && (
+                    <div className="text-[11px] font-medium text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-2.5 py-1.5">
+                      {createError}
+                    </div>
+                  )}
 
                   {/* Theme picker trigger button */}
                   <div>
@@ -181,7 +211,7 @@ function DashboardPage() {
                 </form>
               ) : (
                 <div
-                  onClick={() => setShowForm(true)}
+                  onClick={handleOpenForm}
                   className="rounded-2xl p-4 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 border border-dashed border-[#2A2A35] hover:border-purple-500/80 hover:bg-[#1C1C24]"
                   style={{
                     backgroundColor: 'var(--color-bg-surface)',
@@ -196,16 +226,16 @@ function DashboardPage() {
             </div>
           )}
 
-          {/* Integrated Screen Text (No boxes, no borders, no emojis) */}
+          {/* Seamless Integrated Page Text (Italic, Perfectly Centered, Blended) */}
           {!loading && (
-            <div className="mt-20 text-center flex-1 flex flex-col items-center justify-center">
+            <div className="flex-1 flex flex-col items-center justify-center text-center my-auto py-16">
               {boards.length === 0 ? (
-                <p className="text-base font-medium text-gray-400">
-                  Create your workspace
+                <p className="text-base font-normal italic tracking-wide text-gray-400/80 select-none">
+                  Create your workspace!
                 </p>
               ) : boards.some((b) => b.title === 'Your 1st Board') ? (
-                <p className="text-sm font-medium text-gray-400">
-                  <span className="text-purple-400 font-semibold">Your 1st Board is right here</span> — you can edit it or create a new one
+                <p className="text-sm font-normal italic tracking-wide text-gray-400/80 select-none">
+                  <span className="text-purple-400/90 font-medium not-italic">Your 1st Board is right here</span> — you can edit it or create a new one!
                 </p>
               ) : null}
             </div>
@@ -227,6 +257,7 @@ function DashboardPage() {
               currentBackground={selectedGradient}
               onSelectBackground={(bg) => {
                 setSelectedGradient(bg)
+                setUserSelectedBg(true)
                 setShowBgModal(false)
               }}
               onClose={() => setShowBgModal(false)}

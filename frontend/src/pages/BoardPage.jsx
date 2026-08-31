@@ -154,6 +154,7 @@ function BoardPage() {
       fetchBoardData()
     } catch (err) {
       console.error(err)
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to create list')
     } finally {
       setAddingListLoading(false)
     }
@@ -180,6 +181,7 @@ function BoardPage() {
       fetchBoardData()
     } catch (err) {
       console.error(err)
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to rename list')
     }
   }
 
@@ -195,6 +197,7 @@ function BoardPage() {
       fetchBoardData()
     } catch (err) {
       console.error('Failed to edit list:', err)
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to update list')
     }
   }
 
@@ -209,6 +212,7 @@ function BoardPage() {
       fetchBoardData()
     } catch (err) {
       console.error(err)
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to create card')
     }
   }
 
@@ -230,6 +234,7 @@ function BoardPage() {
       fetchBoardData()
     } catch (err) {
       console.error(err)
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to update card')
     }
   }
 
@@ -472,9 +477,9 @@ function BoardPage() {
     }, 3000)
   }
 
-  // Fallback default background
-  const boardBg = board?.background || DEFAULT_BACKGROUND
-  const bgStyle = formatBackgroundStyle(boardBg)
+  // Background style (render clean dark background while loading to prevent default wallpaper flicker)
+  const boardBg = board?.background
+  const bgStyle = boardBg ? formatBackgroundStyle(boardBg) : { backgroundColor: '#14141B' }
 
   return (
     <div className="h-screen w-full flex flex-col bg-[#0F0F14] overflow-hidden select-none">

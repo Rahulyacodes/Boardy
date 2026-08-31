@@ -17,13 +17,27 @@ router.post('/:boardId/lists', authenticate, authorizeBoard, authorizeBoardRole(
         const {title} = req.body
         const boardId = req.params.boardId
 
-        if(!title){
+        if(!title || !title.trim()){
             const err = new Error("Title is required")
             err.status = 400
             return next(err)
         }
 
-        // fint out the position of the lists
+        const cleanTitle = title.trim()
+
+        // Check if a list with the same title already exists in this board
+        const existingList = await List.findOne({
+            boardId,
+            title: { $regex: new RegExp(`^${cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        })
+
+        if (existingList) {
+            const err = new Error(`A list named "${cleanTitle}" already exists in this board.`)
+            err.status = 400
+            return next(err)
+        }
+
+        // find out the position of the lists
         const boardLists = await List.find({ boardId })
         const lastPosition = boardLists.length > 0 
         ? Math.max(...boardLists.map(l => l.position)) : 0;
@@ -31,7 +45,7 @@ router.post('/:boardId/lists', authenticate, authorizeBoard, authorizeBoardRole(
 
         // create the list 
         const list = await List.create({
-            title,
+            title: cleanTitle,
             position : newPosition,
             boardId
         })
@@ -53,7 +67,20 @@ router.patch('/:listId', authenticate, authorizeList, authorizeBoardRole(['owner
         const updates = {}
 
         if (title !== undefined && title.trim() !== '') {
-            updates.title = title.trim()
+            const cleanTitle = title.trim()
+            if (cleanTitle !== req.list.title) {
+                const existingList = await List.findOne({
+                    _id: { $ne: req.list._id },
+                    boardId: req.list.boardId,
+                    title: { $regex: new RegExp(`^${cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+                })
+                if (existingList) {
+                    const err = new Error(`A list named "${cleanTitle}" already exists in this board.`)
+                    err.status = 400
+                    return next(err)
+                }
+                updates.title = cleanTitle
+            }
         }
 
         if (position !== undefined && !isNaN(Number(position))) {

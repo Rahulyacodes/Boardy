@@ -79,14 +79,54 @@ export function getAutoDiscoveredBackgrounds() {
   return categoriesMap
 }
 
+// Interleave auto-discovered image backgrounds across categories in round-robin order
+export function getLinearImageBackgrounds() {
+  const categoriesMap = getAutoDiscoveredBackgrounds()
+  const categoryKeys = Object.keys(categoriesMap).filter((cat) => cat !== GRADIENTS_CATEGORY)
+
+  if (categoryKeys.length === 0) {
+    return [DEFAULT_BACKGROUND]
+  }
+
+  // Extract arrays of image background values for each category
+  const categoryArrays = categoryKeys.map((cat) =>
+    categoriesMap[cat].map((item) => item.value).filter(Boolean)
+  )
+
+  const maxLen = Math.max(...categoryArrays.map((arr) => arr.length))
+  const interleavedValues = []
+
+  // Round-robin iteration across categories: item 0 from cat 1, item 0 from cat 2, ... then item 1 from cat 1, item 1 from cat 2, etc.
+  for (let i = 0; i < maxLen; i++) {
+    for (let c = 0; c < categoryArrays.length; c++) {
+      if (categoryArrays[c][i]) {
+        interleavedValues.push(categoryArrays[c][i])
+      }
+    }
+  }
+
+  // Ensure default image jahanzeb-ahsan-UZGKXvsmuJA-unsplash is at index 0 if present
+  const defaultIdx = interleavedValues.findIndex((val) => val.includes('jahanzeb-ahsan-UZGKXvsmuJA-unsplash'))
+  if (defaultIdx > 0) {
+    const [defaultImg] = interleavedValues.splice(defaultIdx, 1)
+    interleavedValues.unshift(defaultImg)
+  }
+
+  return interleavedValues.length > 0 ? interleavedValues : [DEFAULT_BACKGROUND]
+}
+
+// Get next default background dynamically based on existing board count
+export function getNextDefaultBackground(existingBoardsCount = 0) {
+  const imageList = getLinearImageBackgrounds()
+  const index = Math.max(0, existingBoardsCount) % imageList.length
+  return imageList[index]
+}
+
 // Helper to format CSS background style safely for both image URLs and linear gradients
 export function formatBackgroundStyle(bgValue) {
   if (!bgValue) {
     return {
-      backgroundImage: DEFAULT_BACKGROUND,
-      backgroundPosition: 'center center',
-      backgroundSize: 'cover',
-      backgroundRepeat: 'no-repeat'
+      backgroundColor: '#14141B'
     }
   }
 
@@ -98,11 +138,11 @@ export function formatBackgroundStyle(bgValue) {
       finalUrl = `url("${bgValue}")`
     }
     return {
-      backgroundImage: `${finalUrl}, ${DEFAULT_BACKGROUND}`,
+      backgroundImage: finalUrl,
       backgroundPosition: 'center center',
       backgroundSize: 'cover',
       backgroundRepeat: 'no-repeat',
-      backgroundColor: '#1C1C26'
+      backgroundColor: '#14141B'
     }
   }
 

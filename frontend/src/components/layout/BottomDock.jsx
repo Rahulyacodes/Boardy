@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { getBoards, createBoard } from '../../api'
 import { GRADIENT_PRESETS } from './BoardNavbar'
 import BackgroundPickerModal from '../board/BackgroundPickerModal'
-import { formatBackgroundStyle, DEFAULT_BACKGROUND } from '../../utils/backgrounds'
+import { formatBackgroundStyle, DEFAULT_BACKGROUND, getNextDefaultBackground } from '../../utils/backgrounds'
 
 function BottomDock({ activeTab = 'board', setActiveTab }) {
   const navigate = useNavigate()
@@ -16,7 +16,9 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [selectedGradient, setSelectedGradient] = useState(DEFAULT_BACKGROUND)
+  const [userSelectedBg, setUserSelectedBg] = useState(false)
   const [showBgModal, setShowBgModal] = useState(false)
+  const [createError, setCreateError] = useState('')
 
   useEffect(() => {
     if (boardsModalOpen) {
@@ -29,6 +31,9 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
     try {
       const res = await getBoards()
       setBoards(res.data)
+      if (!userSelectedBg) {
+        setSelectedGradient(getNextDefaultBackground(res.data.length))
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -53,21 +58,32 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
     }
   }
 
+  const handleOpenCreateForm = () => {
+    if (!userSelectedBg) {
+      setSelectedGradient(getNextDefaultBackground(boards.length))
+    }
+    setShowCreateForm(true)
+  }
+
   const handleCreateBoard = async (e) => {
     e.preventDefault()
     if (!newTitle.trim()) return
+    setCreateError('')
+    const bgToUse = userSelectedBg ? selectedGradient : getNextDefaultBackground(boards.length)
     try {
       const res = await createBoard({
         title: newTitle.trim(),
-        background: selectedGradient
+        background: bgToUse
       })
       setNewTitle('')
       setShowCreateForm(false)
       setBoardsModalOpen(false)
+      setUserSelectedBg(false)
       if (setActiveTab) setActiveTab('board')
       navigate(`/board/${res.data._id}`)
     } catch (err) {
       console.error(err)
+      setCreateError(err.response?.data?.message || err.response?.data?.error || 'Failed to create board')
     }
   }
 
@@ -183,9 +199,18 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
                   autoFocus
                   placeholder="Board title..."
                   value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full bg-[#1C1C24] border border-[#2A2A35] rounded-lg px-3 py-2 text-white mb-3 focus:outline-none focus:border-purple-500"
+                  onChange={(e) => {
+                    setNewTitle(e.target.value)
+                    if (createError) setCreateError('')
+                  }}
+                  className="w-full bg-[#1C1C24] border border-[#2A2A35] rounded-lg px-3 py-2 text-white mb-2 focus:outline-none focus:border-purple-500"
                 />
+
+                {createError && (
+                  <div className="text-[11px] font-medium text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-2.5 py-1.5 mb-3">
+                    {createError}
+                  </div>
+                )}
 
                 <div className="mb-3">
                   <label className="block text-gray-400 mb-1.5 font-medium">Select Background:</label>
@@ -220,7 +245,7 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
               </form>
             ) : (
               <button
-                onClick={() => setShowCreateForm(true)}
+                onClick={handleOpenCreateForm}
                 className="w-full py-2.5 rounded-xl border border-dashed border-[#3A3A4A] hover:border-purple-500 text-gray-300 hover:text-white flex items-center justify-center gap-2 transition-colors text-xs font-semibold"
               >
                 <span>+ Create New Board</span>
@@ -241,6 +266,7 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
               currentBackground={selectedGradient}
               onSelectBackground={(bg) => {
                 setSelectedGradient(bg)
+                setUserSelectedBg(true)
                 setShowBgModal(false)
               }}
               onClose={() => setShowBgModal(false)}

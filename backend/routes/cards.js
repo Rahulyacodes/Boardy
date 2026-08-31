@@ -15,8 +15,25 @@ router.post('/:listId/cards', authenticate, authorizeList, authorizeBoardRole(['
     const { title, description } = req.body
     const listId = req.params.listId
 
-    if (!title) {
+    if (!title || !title.trim()) {
       const err = new Error('Title is required')
+      err.status = 400
+      return next(err)
+    }
+
+    const cleanTitle = title.trim()
+
+    // Enforce card title uniqueness within the board (across all lists in this board)
+    const boardLists = await List.find({ boardId: req.board._id })
+    const boardListIds = boardLists.map(l => l._id)
+
+    const existingCard = await Card.findOne({
+      listId: { $in: boardListIds },
+      title: { $regex: new RegExp(`^${cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    })
+
+    if (existingCard) {
+      const err = new Error(`A card named "${cleanTitle}" already exists in this board.`)
       err.status = 400
       return next(err)
     }
@@ -28,7 +45,7 @@ router.post('/:listId/cards', authenticate, authorizeList, authorizeBoardRole(['
       : 0
 
     const card = await Card.create({
-      title,
+      title: cleanTitle,
       description: description || '',
       position: lastPosition + 1,
       listId
@@ -48,7 +65,26 @@ router.patch('/:cardId', authenticate, authorizeCard, authorizeBoardRole(['owner
     const { title, description, completed, labels, dueDate, checklist, checklists, assignedMembers, attachments } = req.body
 
     const updates = {}
-    if (title !== undefined)           updates.title           = title
+    if (title !== undefined && title.trim() !== '') {
+      const cleanTitle = title.trim()
+      if (cleanTitle !== req.card.title) {
+        const boardLists = await List.find({ boardId: req.board._id })
+        const boardListIds = boardLists.map(l => l._id)
+
+        const existingCard = await Card.findOne({
+          _id: { $ne: req.card._id },
+          listId: { $in: boardListIds },
+          title: { $regex: new RegExp(`^${cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        })
+
+        if (existingCard) {
+          const err = new Error(`A card named "${cleanTitle}" already exists in this board.`)
+          err.status = 400
+          return next(err)
+        }
+        updates.title = cleanTitle
+      }
+    }
     if (description !== undefined)     updates.description     = description
     if (completed !== undefined)       updates.completed       = completed
     if (labels !== undefined)          updates.labels          = labels

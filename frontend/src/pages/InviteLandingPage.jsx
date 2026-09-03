@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getInviteInfo, joinByLink } from '../api'
 import { getDiceBearAvatar } from '../utils/avatars'
+import { StatusBarsLogo } from '../components/common/StatusBarsLogo'
 
 export default function InviteLandingPage() {
   const { inviteToken } = useParams()
@@ -64,9 +65,7 @@ export default function InviteLandingPage() {
           to="/"
           className="flex items-center gap-2.5 group transition-transform duration-200 active:scale-95 cursor-pointer"
         >
-          <div className="w-9 h-9 bg-gradient-to-tr from-purple-600 to-indigo-500 rounded-xl flex items-center justify-center p-1.5 shadow-lg shadow-purple-600/30 group-hover:from-purple-500 group-hover:to-indigo-400 transition-colors font-black text-sm text-white">
-            P
-          </div>
+          <StatusBarsLogo size={36} />
           <span className="font-extrabold text-xl tracking-tight text-white group-hover:text-purple-300 transition-colors">
             PrimeTeam
           </span>

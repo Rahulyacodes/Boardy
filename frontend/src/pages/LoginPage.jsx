@@ -4,6 +4,7 @@ import { GoogleLogin } from '@react-oauth/google'
 import { login, sendLoginOtp, verifyLoginOtp, googleLogin } from '../api'
 import { useAuth } from '../context/AuthContext'
 import ForgotPasswordModal from '../components/auth/ForgotPasswordModal'
+import { StatusBarsLogo } from '../components/common/StatusBarsLogo'
 
 function LoginPage() {
   const [loginMethod, setLoginMethod] = useState('password') // 'password' | 'otp'
@@ -192,9 +193,7 @@ function LoginPage() {
         
         {/* Header / Logo */}
         <div className="text-center flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-purple-600/40 mb-1">
-            P
-          </div>
+          <StatusBarsLogo size={52} className="mb-1" />
           <h1 className="text-2xl font-bold tracking-tight text-white">PrimeTeam</h1>
           <p className="text-sm text-[#8B8B9E]">Welcome back! Sign in to your workspace</p>
         </div>

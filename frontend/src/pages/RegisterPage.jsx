@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { sendRegistrationOtp, verifyRegistrationOtp, googleLogin } from '../api'
 import { useAuth } from '../context/AuthContext'
+import { StatusBarsLogo } from '../components/common/StatusBarsLogo'
 
 function RegisterPage() {
   const [form, setForm]       = useState({ username: '', email: '', password: '' })
@@ -161,9 +162,7 @@ function RegisterPage() {
         
         {/* Header / Logo */}
         <div className="text-center flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-purple-600/40 mb-1">
-            P
-          </div>
+          <StatusBarsLogo size={52} className="mb-1" />
           <h1 className="text-2xl font-bold tracking-tight text-white">PrimeTeam</h1>
           <p className="text-sm text-[#8B8B9E]">
             {step === 'details' ? 'Create your workspace to get started' : 'Verify your email to complete registration'}

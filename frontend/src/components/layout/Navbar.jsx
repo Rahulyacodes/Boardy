@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { searchAll, getNotifications, markNotificationRead, markAllNotificationsRead, getPendingInvites, respondToInvite } from '../../api'
 import { getDiceBearAvatar } from '../../utils/avatars'
+import { StatusBarsLogo } from '../common/StatusBarsLogo'
 
 function Navbar({ onSearch }) {
   const { user, logoutUser } = useAuth()
@@ -178,9 +179,7 @@ function Navbar({ onSearch }) {
         onClick={() => navigate('/')}
         className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity"
       >
-        <div className="w-7 h-7 bg-gradient-to-tr from-purple-600 to-indigo-500 rounded-lg flex items-center justify-center p-1 shadow-md shadow-purple-600/30 font-black text-xs text-white">
-          P
-        </div>
+        <StatusBarsLogo size={28} />
         <span className="font-bold text-base tracking-tight text-white">PrimeTeam</span>
       </div>
 

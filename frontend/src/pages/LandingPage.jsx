@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { StatusBarsLogo } from '../components/common/StatusBarsLogo'
 
 function LandingPage() {
   const { user } = useAuth()
@@ -114,9 +115,7 @@ function LandingPage() {
       <nav className="w-full bg-transparent sticky top-0 z-50">
         <div className="max-w-5xl mx-auto flex items-center justify-between px-6 sm:px-10 py-6">
           <Link to="/" className="text-lg font-semibold text-[#7C6FF7] tracking-tight hover:opacity-90 transition-opacity flex items-center gap-2.5">
-            <div className="w-7.5 h-7.5 rounded-md bg-[#7C6FF7] text-white flex items-center justify-center font-bold text-sm shadow-sm shadow-[#7C6FF7]/40">
-              P
-            </div>
+            <StatusBarsLogo size={30} />
             <span className="text-white font-bold tracking-tight text-xl">PrimeTeam</span>
           </Link>
 
@@ -588,9 +587,7 @@ function LandingPage() {
         
         {/* App Name & Logo */}
         <div className="flex items-center gap-2 font-bold text-white tracking-tight">
-          <div className="w-5 h-5 rounded bg-[#7C6FF7] text-white flex items-center justify-center font-bold text-[10px]">
-            P
-          </div>
+          <StatusBarsLogo size={22} />
           <span className="text-[#7C6FF7]">PrimeTeam</span>
         </div>
 

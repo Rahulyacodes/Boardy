@@ -39,9 +39,14 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
   const [leaving, setLeaving] = useState(false)
   const [leaveError, setLeaveError] = useState('')
 
+  // Board Members Popover states
+  const [membersPopoverOpen, setMembersPopoverOpen] = useState(false)
+  const [membersSearchQuery, setMembersSearchQuery] = useState('')
+
   const dropdownRef = useRef(null)
   const filterRef = useRef(null)
   const leaveModalRef = useRef(null)
+  const membersPopoverRef = useRef(null)
 
   useEffect(() => {
     setTitleText(board?.title || '')
@@ -56,6 +61,9 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
       }
       if (filterRef.current && !filterRef.current.contains(e.target)) {
         setFilterOpen(false)
+      }
+      if (membersPopoverRef.current && !membersPopoverRef.current.contains(e.target)) {
+        setMembersPopoverOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -368,22 +376,140 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
           </svg>
         </button>
 
-        {/* Member Avatar Bubbles (accepted members only) */}
-        <div className="flex items-center -space-x-2 overflow-hidden">
-          {acceptedMembers.map((m, idx) => {
-            const memberObj = m.userId || {}
-            const username = memberObj.username || 'User'
-            const avatarUri = getDiceBearAvatar(memberObj.avatar || username)
-            return (
-              <div
-                key={m._id || idx}
-                title={`${username} (${m.role})`}
-                className="w-8 h-8 rounded-full bg-[#13131A] border-2 border-[#181820] flex items-center justify-center p-0.5 overflow-hidden shadow"
-              >
-                <img src={avatarUri} alt={username} className="w-full h-full object-contain rounded-full" />
+        {/* Member Avatar Bubbles & Popover */}
+        <div className="relative" ref={membersPopoverRef}>
+          <button
+            type="button"
+            onClick={() => setMembersPopoverOpen(!membersPopoverOpen)}
+            className="flex items-center -space-x-2 p-1 rounded-xl hover:bg-white/10 transition-all cursor-pointer group focus:outline-none"
+            title="Click to view all board members"
+          >
+            {acceptedMembers.slice(0, 4).map((m, idx) => {
+              const memberObj = typeof m.userId === 'object' ? m.userId : { username: 'User' }
+              const username = memberObj?.username || 'User'
+              const avatarUri = getDiceBearAvatar(memberObj?.avatar || username)
+              return (
+                <div
+                  key={m._id || idx}
+                  className="w-8 h-8 rounded-full bg-[#13131A] border-2 border-[#181820] flex items-center justify-center p-0.5 overflow-hidden shadow group-hover:border-purple-500/60 transition-colors"
+                >
+                  <img src={avatarUri} alt={username} className="w-full h-full object-contain rounded-full" />
+                </div>
+              )
+            })}
+            {acceptedMembers.length > 4 && (
+              <div className="w-8 h-8 rounded-full bg-[#222230] border-2 border-[#181820] text-gray-300 font-bold text-xs flex items-center justify-center shadow group-hover:border-purple-500/60 transition-colors">
+                +{acceptedMembers.length - 4}
               </div>
-            )
-          })}
+            )}
+          </button>
+
+          {/* Popover Dropdown */}
+          {membersPopoverOpen && (
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#1C1C24] border border-[#2A2A35] rounded-2xl p-4 shadow-2xl z-50 text-xs text-gray-200 animate-fadeIn">
+              <div className="flex items-center justify-between border-b border-[#2A2A35] pb-2.5 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-white text-xs tracking-tight">Board Members</h4>
+                    <p className="text-[10px] text-gray-400">{acceptedMembers.length} active member{acceptedMembers.length !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMembersPopoverOpen(false)}
+                  className="text-gray-400 hover:text-white text-xs cursor-pointer p-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Filter by name, username or email..."
+                  value={membersSearchQuery}
+                  onChange={(e) => setMembersSearchQuery(e.target.value)}
+                  className="w-full bg-[#0F0F14] border border-[#2A2A38] focus:border-purple-500 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none transition-all"
+                />
+              </div>
+
+              {/* Members List */}
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {acceptedMembers
+                  .filter((m) => {
+                    const uObj = typeof m.userId === 'object' ? m.userId : {}
+                    const q = membersSearchQuery.toLowerCase()
+                    if (!q) return true
+                    return (
+                      (uObj.name && uObj.name.toLowerCase().includes(q)) ||
+                      (uObj.username && uObj.username.toLowerCase().includes(q)) ||
+                      (uObj.email && uObj.email.toLowerCase().includes(q))
+                    )
+                  })
+                  .map((m, idx) => {
+                    const uObj = typeof m.userId === 'object' ? m.userId : {}
+                    const displayName = uObj.name || uObj.username || 'Board User'
+                    const handleUsername = uObj.username || 'user'
+                    const uEmail = uObj.email || `${handleUsername}@gmail.com`
+                    const avatarUri = getDiceBearAvatar(uObj.avatar || handleUsername)
+                    const uId = uObj._id || m.userId
+                    const isCurrentUser = (uId === user?.id || uId === user?._id)
+
+                    return (
+                      <div
+                        key={m._id || idx}
+                        className="bg-[#121218] border border-[#2A2A38] hover:border-purple-500/40 rounded-xl p-2.5 flex items-center justify-between gap-3 transition-colors"
+                      >
+                        {/* Left: Avatar + Details */}
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-9 h-9 rounded-full bg-[#1A1A26] border border-purple-500/40 p-0.5 shrink-0 overflow-hidden shadow">
+                            <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-white text-xs truncate">{displayName}</span>
+                              {isCurrentUser && (
+                                <span className="px-1.5 py-0.5 rounded bg-white/10 text-gray-300 text-[10px] font-medium">you</span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[#A0A0B8] truncate">@{handleUsername}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{uEmail}</p>
+                          </div>
+                        </div>
+
+                        {/* Right: Role Badge */}
+                        <div className="shrink-0">
+                          <span className="px-2.5 py-0.5 rounded-md bg-[#181822] border border-[#2A2A38] text-gray-400 text-[11px] font-medium capitalize tracking-wide">
+                            {m.role || 'Member'}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+
+              {/* Bottom Invite shortcut */}
+              <div className="border-t border-[#2A2A35] mt-3 pt-2.5 flex items-center justify-between">
+                <span className="text-[10px] text-gray-400">Want to add someone new?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMembersPopoverOpen(false)
+                    setShareModalOpen(true)
+                  }}
+                  className="px-3 py-1 bg-transparent border border-purple-500 hover:bg-purple-500/20 text-purple-300 hover:text-white font-semibold text-[11px] rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                >
+                  <span>+ Share & Invite</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Filter Button & Popover */}
@@ -449,9 +575,11 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
                     {!filterMemberId && <span>✓</span>}
                   </button>
                   {sortedMembers.map((m) => {
-                    const uObj = m.userId || {}
-                    const uId = uObj._id || uObj
+                    const uObj = typeof m.userId === 'object' ? m.userId : {}
+                    const uId = uObj._id || m.userId
                     const uName = uObj.username || 'User'
+                    const displayName = uObj.name || uName
+                    const avatarUri = getDiceBearAvatar(uObj.avatar || uName)
                     const isSelected = filterMemberId === uId
 
                     return (
@@ -463,10 +591,10 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
-                            {uName.slice(0, 2).toUpperCase()}
+                          <div className="w-5 h-5 rounded-full bg-[#13131A] border border-purple-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
+                            <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
                           </div>
-                          <span>{uName}</span>
+                          <span>{displayName}</span>
                         </div>
                         {isSelected && <span>✓</span>}
                       </button>

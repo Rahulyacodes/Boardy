@@ -1788,8 +1788,12 @@ function CardDetailModal({
                 {/* Dynamic System Activity Entry with Relative Time */}
                 {showActivityDetails && (
                   <div className="flex items-start gap-2.5 text-xs text-gray-400 bg-[#121218]/60 p-2.5 rounded-xl border border-[#2A2A38]/50">
-                    <div className="w-6 h-6 rounded-full bg-purple-600/30 text-purple-300 border border-purple-500/40 flex items-center justify-center text-[10px] font-bold shrink-0">
-                      {currentUser?.username ? currentUser.username.slice(0, 2).toUpperCase() : 'LD'}
+                    <div className="w-6 h-6 rounded-full bg-[#121218] border border-purple-500/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                      <img
+                        src={getDiceBearAvatar(currentUser?.avatar || currentUser?.username || 'User')}
+                        alt={currentUser?.username || 'User'}
+                        className="w-full h-full object-contain rounded-full"
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] leading-tight">
@@ -1805,9 +1809,10 @@ function CardDetailModal({
                   <p className="text-xs text-gray-500 italic text-center py-4">No comments yet.</p>
                 ) : (
                   (comments || []).filter(Boolean).map((c) => {
-                    const authorObj = (c.authorId && typeof c.authorId === 'object') ? c.authorId : {}
+                    const authorObj = typeof c.authorId === 'object' ? c.authorId : (typeof c.author === 'object' ? c.author : {})
                     const authorName = authorObj.name || authorObj.username || 'User'
-                    const authorAvatarUri = getDiceBearAvatar(authorObj.avatar || authorName) || ''
+                    const avatarSeed = authorObj.avatar || authorObj.username || authorName
+                    const authorAvatarUri = getDiceBearAvatar(avatarSeed)
                     const authorIdVal = authorObj._id || c.authorId
                     const currentUserIdVal = currentUser?.id || currentUser?._id
                     const isAuthor = Boolean(authorIdVal && currentUserIdVal && String(authorIdVal) === String(currentUserIdVal))

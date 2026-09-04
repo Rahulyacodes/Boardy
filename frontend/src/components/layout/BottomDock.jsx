@@ -96,10 +96,10 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
           onClick={() => {
             if (setActiveTab) setActiveTab('planner')
           }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all cursor-pointer ${
             activeTab === 'planner'
-              ? 'bg-purple-600/90 text-white shadow-lg shadow-purple-600/30'
-              : 'hover:bg-white/10 text-gray-300'
+              ? 'border-purple-500 text-purple-300 bg-transparent font-bold shadow-sm shadow-purple-500/20'
+              : 'border-transparent hover:bg-white/10 text-gray-300'
           }`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,10 +111,10 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
         {/* 2. Board */}
         <button
           onClick={handleOpenRecentBoard}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all cursor-pointer ${
             activeTab === 'board'
-              ? 'bg-purple-600/90 text-white shadow-lg shadow-purple-600/30'
-              : 'hover:bg-white/10 text-gray-300'
+              ? 'border-purple-500 text-purple-300 bg-transparent font-bold shadow-sm shadow-purple-500/20'
+              : 'border-transparent hover:bg-white/10 text-gray-300'
           }`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,7 +126,7 @@ function BottomDock({ activeTab = 'board', setActiveTab }) {
         {/* 3. Switch boards */}
         <button
           onClick={() => setBoardsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white/10 text-gray-300 transition-all"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-transparent hover:bg-white/10 text-gray-300 transition-all cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" />

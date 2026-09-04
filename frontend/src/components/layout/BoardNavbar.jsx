@@ -47,6 +47,7 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
   const filterRef = useRef(null)
   const leaveModalRef = useRef(null)
   const membersPopoverRef = useRef(null)
+  const shareModalRef = useRef(null)
 
   useEffect(() => {
     setTitleText(board?.title || '')
@@ -88,6 +89,25 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
       document.removeEventListener('touchstart', handleOutsideClick)
     }
   }, [leaveModalOpen])
+
+  // Close share modal when clicking anywhere outside modal content
+  useEffect(() => {
+    if (!shareModalOpen) return
+    function handleOutsideClick(e) {
+      if (shareModalRef.current && !shareModalRef.current.contains(e.target)) {
+        setShareModalOpen(false)
+      }
+    }
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleOutsideClick)
+      document.addEventListener('touchstart', handleOutsideClick)
+    }, 0)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('touchstart', handleOutsideClick)
+    }
+  }, [shareModalOpen])
 
   const handleSaveTitle = async () => {
     if (!titleText.trim() || titleText === board.title) {
@@ -650,6 +670,7 @@ function BoardNavbar({ board, onBoardUpdate, filterMemberId, setFilterMemberId, 
       {shareModalOpen && (
         <div className="fixed inset-0 z-50 flex justify-center items-start pt-[108px] bg-black/50 backdrop-blur-sm" onClick={() => setShareModalOpen(false)}>
           <div
+            ref={shareModalRef}
             onClick={(e) => e.stopPropagation()}
             className="bg-[#22232B] border border-[#323342] rounded-2xl p-6 w-full max-w-lg shadow-2xl text-white my-auto max-h-[calc(100vh-130px)] overflow-y-auto"
           >

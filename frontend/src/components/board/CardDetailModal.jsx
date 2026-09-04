@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { updateCard, deleteCard, getCardComments, addCardComment, deleteCardComment } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { getDiceBearAvatar } from '../../utils/avatars'
+import CustomCalendarPicker from './CustomCalendarPicker'
 
 export const PREDEFINED_LABELS = [
   { color: '#EF4444', name: 'Urgent' },
@@ -252,6 +253,10 @@ function CardDetailModal({
   // Member search in popover
   const [memberSearch, setMemberSearch] = useState('')
 
+  // Assigned Members Popover state & ref
+  const [showAssignedMembersPopover, setShowAssignedMembersPopover] = useState(false)
+  const assignedMembersPopoverRef = useRef(null)
+
   // Refs
   const popoverRef = useRef(null)
   const titleInputRef = useRef(null)
@@ -269,6 +274,9 @@ function CardDetailModal({
     function handleClickOutside(event) {
       if (popoverRef.current && !popoverRef.current.contains(event.target)) {
         setActivePopover(null)
+      }
+      if (assignedMembersPopoverRef.current && !assignedMembersPopoverRef.current.contains(event.target)) {
+        setShowAssignedMembersPopover(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -296,10 +304,43 @@ function CardDetailModal({
     }
   }, [card])
 
+  // Active WYSIWYG formatting state (Bold, Italic, List, Heading)
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, bulletList: false, heading: '' })
+
+  const updateActiveFormats = () => {
+    if (!descEditorRef.current) return
+    try {
+      const isBold = document.queryCommandState('bold')
+      const isItalic = document.queryCommandState('italic')
+      const isBulletList = document.queryCommandState('insertUnorderedList')
+      const rawBlock = (document.queryCommandValue('formatBlock') || '').toLowerCase()
+      setActiveFormats({
+        bold: isBold,
+        italic: isItalic,
+        bulletList: isBulletList,
+        heading: rawBlock
+      })
+    } catch (err) {
+      // ignore Edge cases
+    }
+  }
+
+  useEffect(() => {
+    if (!isEditingDesc) return
+    const handleSelectionChange = () => {
+      updateActiveFormats()
+    }
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [isEditingDesc])
+
   // Sync contentEditable innerHTML when editing mode toggles or description resets
   useEffect(() => {
     if (isEditingDesc && descEditorRef.current) {
       descEditorRef.current.innerHTML = description || ''
+      setTimeout(updateActiveFormats, 0)
     }
   }, [isEditingDesc])
 
@@ -308,12 +349,14 @@ function CardDetailModal({
     descEditorRef.current?.focus()
     document.execCommand('bold', false, null)
     if (descEditorRef.current) setDescription(descEditorRef.current.innerHTML)
+    setTimeout(updateActiveFormats, 0)
   }
 
   const applyItalic = () => {
     descEditorRef.current?.focus()
     document.execCommand('italic', false, null)
     if (descEditorRef.current) setDescription(descEditorRef.current.innerHTML)
+    setTimeout(updateActiveFormats, 0)
   }
 
   const applyHeadingBlock = (tag) => {
@@ -325,12 +368,14 @@ function CardDetailModal({
     }
     setShowHeadingMenu(false)
     if (descEditorRef.current) setDescription(descEditorRef.current.innerHTML)
+    setTimeout(updateActiveFormats, 0)
   }
 
   const applyBulletList = () => {
     descEditorRef.current?.focus()
     document.execCommand('insertUnorderedList', false, null)
     if (descEditorRef.current) setDescription(descEditorRef.current.innerHTML)
+    setTimeout(updateActiveFormats, 0)
   }
 
   const handleOpenLinkModal = () => {
@@ -720,10 +765,20 @@ function CardDetailModal({
   const isActionTabPopoverOpen = ['members', 'labels', 'dates', 'checklist', 'attachment'].includes(activePopover)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fadeIn font-sans text-white">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          if (onClose) onClose()
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fadeIn font-sans text-white cursor-pointer"
+    >
       
       {/* --------------------------- MAIN MODAL CONTAINER --------------------------- */}
-      <div className="bg-[#1C1C24] border border-[#2A2A38] w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] relative select-none">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#1C1C24] border border-[#2A2A38] w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] relative select-none cursor-default"
+      >
         
         {/* TOP BAR / HEADER */}
         <div className="px-6 py-3.5 border-b border-[#2A2A38] bg-[#161620] flex items-center justify-between gap-4 shrink-0">
@@ -1134,7 +1189,7 @@ function CardDetailModal({
 
                         <button
                           type="submit"
-                          className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow mt-1"
+                          className="w-full py-2 bg-transparent border-2 border-purple-500 hover:bg-purple-500/20 text-purple-300 font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-sm mt-1"
                         >
                           Create & Add Label
                         </button>
@@ -1144,39 +1199,19 @@ function CardDetailModal({
 
                   {/* 3. POPOVER: DATES */}
                   {activePopover === 'dates' && (
-                    <div className="space-y-3">
-                      <input
-                        type="date"
-                        value={dueDate ? dueDate.split('T')[0] : ''}
-                        onChange={(e) => {
-                          setDueDate(e.target.value)
-                          handleSaveAll({ dueDate: e.target.value })
-                        }}
-                        className="w-full bg-[#121218] border border-[#2A2A38] text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setActivePopover(null)}
-                          className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer"
-                        >
-                          Save Date
-                        </button>
-                        {dueDate && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDueDate('')
-                              handleSaveAll({ dueDate: '' })
-                              setActivePopover(null)
-                            }}
-                            className="px-3 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    <CustomCalendarPicker
+                      value={dueDate}
+                      onChange={(newDate) => {
+                        setDueDate(newDate)
+                        handleSaveAll({ dueDate: newDate })
+                      }}
+                      onSave={() => setActivePopover(null)}
+                      onRemove={() => {
+                        setDueDate('')
+                        handleSaveAll({ dueDate: '' })
+                        setActivePopover(null)
+                      }}
+                    />
                   )}
 
                   {/* 4. POPOVER: CHECKLIST (MULTIPLE CHECKLISTS CREATOR) */}
@@ -1195,7 +1230,7 @@ function CardDetailModal({
                       </div>
                       <button
                         type="submit"
-                        className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow"
+                        className="w-full py-2 bg-transparent border-2 border-purple-500 hover:bg-purple-500/20 text-purple-300 font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
                       >
                         Add Checklist
                       </button>
@@ -1228,7 +1263,7 @@ function CardDetailModal({
                       </div>
                       <button
                         type="submit"
-                        className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow"
+                        className="w-full py-2 bg-transparent border-2 border-purple-500 hover:bg-purple-500/20 text-purple-300 font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
                       >
                         Attach Link
                       </button>
@@ -1245,25 +1280,123 @@ function CardDetailModal({
                 
                 {/* Active Members List */}
                 {hasMembers && (
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-semibold text-gray-400 block uppercase">Members</span>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {(assignedMembers || []).filter(Boolean).map((m, idx) => {
-                        const uId = typeof m === 'object' ? (m._id || m.id) : m
-                        const displayName = (typeof m === 'object' ? (m.name || m.username) : null) || 'User'
-                        const avatarSeed = (typeof m === 'object' ? (m.avatar || displayName) : displayName)
-                        const avatarUri = getDiceBearAvatar(avatarSeed) || ''
+                  <div className="space-y-1 relative" ref={assignedMembersPopoverRef}>
+                    <span className="text-[11px] font-semibold text-gray-400 block uppercase select-none">Members</span>
+                    
+                    {/* Overlapping Avatars Cluster (Max 3 + Overflow count bubble) */}
+                    <div
+                      onClick={() => setShowAssignedMembersPopover(!showAssignedMembersPopover)}
+                      className="flex items-center cursor-pointer group select-none"
+                      title="Click to view assigned members"
+                    >
+                      {(() => {
+                        const validMembers = (assignedMembers || []).filter(Boolean)
+                        const totalCount = validMembers.length
+                        const maxDisplay = 3
+                        const visibleMembers = validMembers.slice(0, maxDisplay)
+                        const remainingCount = totalCount - maxDisplay
+
                         return (
-                          <div
-                            key={uId || idx}
-                            title={`@${displayName}`}
-                            className="w-7 h-7 rounded-full bg-[#121218] border border-purple-500/40 p-0.5 flex items-center justify-center shadow overflow-hidden"
-                          >
-                            <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
-                          </div>
+                          <>
+                            {visibleMembers.map((m, idx) => {
+                              const uId = typeof m === 'object' ? (m._id || m.id) : m
+                              const displayName = (typeof m === 'object' ? (m.name || m.username) : null) || 'User'
+                              const avatarSeed = (typeof m === 'object' ? (m.avatar || displayName) : displayName)
+                              const avatarUri = getDiceBearAvatar(avatarSeed) || ''
+                              
+                              return (
+                                <div
+                                  key={uId || idx}
+                                  title={`@${displayName}`}
+                                  className={`w-7 h-7 rounded-full bg-[#121218] border-2 border-[#161620] p-0.5 flex items-center justify-center shadow-md overflow-hidden transition-transform group-hover:scale-105 ${
+                                    idx > 0 ? '-ml-2' : ''
+                                  }`}
+                                  style={{ zIndex: maxDisplay - idx }}
+                                >
+                                  <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
+                                </div>
+                              )
+                            })}
+
+                            {remainingCount > 0 && (
+                              <div
+                                className="-ml-2 w-7 h-7 rounded-full bg-[#252538] hover:bg-[#32324A] border-2 border-[#161620] text-purple-300 font-bold text-[11px] flex items-center justify-center shadow-md transition-all group-hover:scale-105"
+                                style={{ zIndex: 0 }}
+                              >
+                                +{remainingCount}
+                              </div>
+                            )}
+                          </>
                         )
-                      })}
+                      })()}
                     </div>
+
+                    {/* Popover Listing All Assigned Members */}
+                    {showAssignedMembersPopover && (
+                      <div className="absolute left-0 top-full mt-2 w-64 bg-[#1A1A26] border border-[#3A3A4D] rounded-2xl p-3 shadow-2xl z-50 text-xs text-white animate-fadeIn">
+                        <div className="flex items-center justify-between border-b border-[#2A2A38] pb-2 mb-2.5">
+                          <span className="font-bold text-gray-200 text-xs tracking-tight">
+                            Assigned Members ({(assignedMembers || []).filter(Boolean).length})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowAssignedMembersPopover(false)}
+                            className="text-gray-400 hover:text-white p-0.5"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {(assignedMembers || []).filter(Boolean).map((m, idx) => {
+                            const uId = typeof m === 'object' ? (m._id || m.id) : m
+                            const displayName = (typeof m === 'object' ? (m.name || m.username) : null) || 'User'
+                            const username = typeof m === 'object' ? m.username : null
+                            const email = typeof m === 'object' ? m.email : null
+                            const avatarSeed = (typeof m === 'object' ? (m.avatar || displayName) : displayName)
+                            const avatarUri = getDiceBearAvatar(avatarSeed) || ''
+
+                            return (
+                              <div
+                                key={uId || idx}
+                                className="flex items-center justify-between bg-[#121218] border border-[#2A2A38] rounded-xl p-2"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <div className="w-7 h-7 rounded-full bg-[#161620] border border-purple-500/40 p-0.5 flex items-center justify-center shrink-0 overflow-hidden">
+                                    <img src={avatarUri} alt={displayName} className="w-full h-full object-contain rounded-full" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-white text-xs truncate">{displayName}</p>
+                                    {username && <p className="text-[10px] text-[#A0A0B8] truncate">@{username}</p>}
+                                    {email && !username && <p className="text-[10px] text-gray-400 truncate">{email}</p>}
+                                  </div>
+                                </div>
+
+                                {!isViewer && (
+                                  <button
+                                    type="button"
+                                    title="Remove from card"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      const updated = (assignedMembers || []).filter((a) => {
+                                        const aId = typeof a === 'object' ? (a._id || a.id) : a
+                                        return String(aId) !== String(uId)
+                                      })
+                                      setAssignedMembers(updated)
+                                      handleSaveAll({ assignedMembers: updated.map((a) => (typeof a === 'object' ? a._id || a.id : a)) })
+                                      if (updated.length === 0) setShowAssignedMembersPopover(false)
+                                    }}
+                                    className="text-gray-500 hover:text-red-400 p-1 text-xs transition-colors cursor-pointer shrink-0"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1358,18 +1491,67 @@ function CardDetailModal({
                           type="button"
                           disabled={isViewer}
                           onClick={() => setShowHeadingMenu(!showHeadingMenu)}
-                          className="px-2 py-1 rounded-lg hover:bg-white/10 text-gray-300 font-semibold flex items-center gap-1 cursor-pointer"
+                          className={`px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
+                            ['h1', 'h2', 'h3'].includes(activeFormats.heading)
+                              ? 'bg-purple-600/40 text-purple-300 border border-purple-500/60 shadow-inner'
+                              : 'hover:bg-white/10 text-gray-300'
+                          }`}
                           title="Text size"
                         >
                           <span className="font-serif font-bold text-sm">Tt</span>
+                          {['h1', 'h2', 'h3'].includes(activeFormats.heading) && (
+                            <span className="text-[10px] font-bold uppercase text-purple-300 ml-0.5">
+                              {activeFormats.heading}
+                            </span>
+                          )}
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
                         </button>
                         {showHeadingMenu && (
                           <div className="absolute left-0 top-8 z-20 bg-[#1F1F2B] border border-[#3A3A4D] rounded-xl p-1 shadow-xl flex flex-col w-32 text-xs">
-                            <button type="button" onClick={() => applyHeadingBlock(null)} className="px-3 py-1.5 hover:bg-purple-600/30 rounded text-left text-gray-200">Normal text</button>
-                            <button type="button" onClick={() => applyHeadingBlock('h1')} className="px-3 py-1.5 hover:bg-purple-600/30 rounded text-left font-bold text-sm text-white">Heading 1</button>
-                            <button type="button" onClick={() => applyHeadingBlock('h2')} className="px-3 py-1.5 hover:bg-purple-600/30 rounded text-left font-semibold text-gray-100">Heading 2</button>
-                            <button type="button" onClick={() => applyHeadingBlock('h3')} className="px-3 py-1.5 hover:bg-purple-600/30 rounded text-left font-medium text-gray-200">Heading 3</button>
+                            <button
+                              type="button"
+                              onClick={() => applyHeadingBlock(null)}
+                              className={`px-3 py-1.5 rounded text-left ${
+                                !['h1', 'h2', 'h3'].includes(activeFormats.heading)
+                                  ? 'bg-purple-600/40 text-purple-300 font-semibold'
+                                  : 'hover:bg-purple-600/30 text-gray-200'
+                              }`}
+                            >
+                              Normal text
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyHeadingBlock('h1')}
+                              className={`px-3 py-1.5 rounded text-left font-bold text-sm ${
+                                activeFormats.heading === 'h1'
+                                  ? 'bg-purple-600/40 text-purple-300'
+                                  : 'hover:bg-purple-600/30 text-white'
+                              }`}
+                            >
+                              Heading 1
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyHeadingBlock('h2')}
+                              className={`px-3 py-1.5 rounded text-left font-semibold ${
+                                activeFormats.heading === 'h2'
+                                  ? 'bg-purple-600/40 text-purple-300'
+                                  : 'hover:bg-purple-600/30 text-gray-100'
+                              }`}
+                            >
+                              Heading 2
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyHeadingBlock('h3')}
+                              className={`px-3 py-1.5 rounded text-left font-medium ${
+                                activeFormats.heading === 'h3'
+                                  ? 'bg-purple-600/40 text-purple-300'
+                                  : 'hover:bg-purple-600/30 text-gray-200'
+                              }`}
+                            >
+                              Heading 3
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1381,7 +1563,11 @@ function CardDetailModal({
                         type="button"
                         disabled={isViewer}
                         onClick={applyBold}
-                        className="w-7 h-7 rounded-lg hover:bg-white/10 text-gray-300 font-bold flex items-center justify-center cursor-pointer text-sm"
+                        className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center cursor-pointer text-sm transition-all ${
+                          activeFormats.bold
+                            ? 'bg-purple-600/40 text-purple-300 border border-purple-500/60 shadow-inner ring-1 ring-purple-500/30'
+                            : 'hover:bg-white/10 text-gray-300 border border-transparent'
+                        }`}
                         title="Bold text"
                       >
                         B
@@ -1392,7 +1578,11 @@ function CardDetailModal({
                         type="button"
                         disabled={isViewer}
                         onClick={applyItalic}
-                        className="w-7 h-7 rounded-lg hover:bg-white/10 text-gray-300 italic font-serif flex items-center justify-center cursor-pointer text-sm"
+                        className={`w-7 h-7 rounded-lg italic font-serif flex items-center justify-center cursor-pointer text-sm transition-all ${
+                          activeFormats.italic
+                            ? 'bg-purple-600/40 text-purple-300 border border-purple-500/60 shadow-inner ring-1 ring-purple-500/30'
+                            : 'hover:bg-white/10 text-gray-300 border border-transparent'
+                        }`}
                         title="Italic text"
                       >
                         I
@@ -1405,7 +1595,11 @@ function CardDetailModal({
                         type="button"
                         disabled={isViewer}
                         onClick={applyBulletList}
-                        className="w-7 h-7 rounded-lg hover:bg-white/10 text-gray-300 flex items-center justify-center cursor-pointer"
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-all ${
+                          activeFormats.bulletList
+                            ? 'bg-purple-600/40 text-purple-300 border border-purple-500/60 shadow-inner ring-1 ring-purple-500/30'
+                            : 'hover:bg-white/10 text-gray-300 border border-transparent'
+                        }`}
                         title="Bullet list"
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -1416,7 +1610,7 @@ function CardDetailModal({
                         type="button"
                         disabled={isViewer}
                         onClick={handleOpenLinkModal}
-                        className="w-7 h-7 rounded-lg hover:bg-white/10 text-gray-300 flex items-center justify-center cursor-pointer"
+                        className="w-7 h-7 rounded-lg hover:bg-white/10 text-gray-300 flex items-center justify-center cursor-pointer border border-transparent transition-all"
                         title="Insert link"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -1439,7 +1633,12 @@ function CardDetailModal({
                           if (descEditorRef.current) {
                             setDescription(descEditorRef.current.innerHTML)
                           }
+                          updateActiveFormats()
                         }}
+                        onKeyUp={updateActiveFormats}
+                        onMouseUp={updateActiveFormats}
+                        onClick={updateActiveFormats}
+                        onFocus={updateActiveFormats}
                         className="w-full min-h-[120px] p-3.5 text-xs text-white outline-none leading-relaxed focus:outline-none [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mt-2 [&_h1]:mb-1 [&_h1]:border-b [&_h1]:border-[#2A2A38] [&_h1]:pb-1 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-purple-300 [&_h2]:mt-2 [&_h2]:mb-1 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-purple-200 [&_h3]:mt-1.5 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:list-inside [&_ul]:my-1.5 [&_li]:my-0.5 [&_a]:text-purple-400 [&_a]:underline [&_a]:font-medium [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic"
                       />
                     </div>
@@ -1454,7 +1653,7 @@ function CardDetailModal({
                           handleSaveAll({ description })
                           setIsEditingDesc(false)
                         }}
-                        className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow"
+                        className="px-4 py-1.5 bg-transparent border-2 border-purple-500 hover:bg-purple-500/20 text-purple-300 font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
                       >
                         Save
                       </button>
@@ -1607,7 +1806,7 @@ function CardDetailModal({
                       />
                       <button
                         type="submit"
-                        className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 font-semibold rounded-xl text-xs text-white transition-colors cursor-pointer"
+                        className="px-3.5 py-1.5 bg-transparent border-2 border-purple-500 hover:bg-purple-500/20 font-bold rounded-xl text-xs text-purple-300 transition-colors cursor-pointer shadow-sm"
                       >
                         Add
                       </button>
@@ -1680,7 +1879,7 @@ function CardDetailModal({
                             </div>
                             <button
                               type="submit"
-                              className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow"
+                              className="w-full py-2 bg-transparent border-2 border-purple-500 hover:bg-purple-500/20 text-purple-300 font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
                             >
                               Attach Link
                             </button>
@@ -1766,7 +1965,7 @@ function CardDetailModal({
                     <button
                       type="submit"
                       disabled={commentLoading}
-                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow"
+                      className="px-4 py-1.5 bg-transparent border-2 border-purple-500 hover:bg-purple-500/20 disabled:opacity-50 text-purple-300 font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
                     >
                       {commentLoading ? 'Posting...' : 'Save Comment'}
                     </button>
@@ -1875,7 +2074,7 @@ function CardDetailModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-xl text-xs font-semibold text-white transition-colors cursor-pointer shadow"
+                className="px-3.5 py-1.5 bg-transparent border-2 border-purple-500 hover:bg-purple-500/20 rounded-xl text-xs font-bold text-purple-300 transition-colors cursor-pointer shadow-sm"
               >
                 Done
               </button>

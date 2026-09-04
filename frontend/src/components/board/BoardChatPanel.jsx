@@ -376,19 +376,10 @@ function BoardChatPanel({ board, onClose, onNewMessageReceived }) {
 
         // 2. Check if token is a @mention
         if (token.match(/^@[\w.-]+$/)) {
-          const cleanHandle = token.replace('@', '').toLowerCase()
-          const isUserMentioned =
-            mentions.some((m) => (m.username || m.name || '').toLowerCase() === cleanHandle) ||
-            members.some((m) => (m.username || m.name || '').toLowerCase() === cleanHandle)
-
           return (
             <span
               key={tokenIdx}
-              className={`inline-block px-1.5 py-0.5 rounded-md font-semibold text-[11px] mx-0.5 ${
-                isUserMentioned
-                  ? 'bg-purple-600/40 text-purple-200 border border-purple-400/50 shadow-sm'
-                  : 'text-purple-300 font-medium'
-              }`}
+              className="text-purple-400 font-semibold mx-0.5"
             >
               {token}
             </span>
@@ -410,7 +401,7 @@ function BoardChatPanel({ board, onClose, onNewMessageReceived }) {
   return (
     <div
       ref={chatPanelRef}
-      className="w-full md:w-[380px] lg:w-[410px] xl:w-[22%] shrink-0 h-[calc(100vh-108px)] bg-[#14141D]/95 backdrop-blur-xl border-l border-[#262636] flex flex-col relative z-20 transition-all duration-300 select-text shadow-2xl"
+      className="w-full md:w-[380px] lg:w-[410px] xl:w-[22%] shrink-0 h-full bg-[#14141D]/95 backdrop-blur-xl border-l border-[#262636] flex flex-col relative z-20 transition-all duration-300 select-text shadow-2xl overflow-hidden"
     >
       {/* Chat Header */}
       <div className="px-4 py-3 border-b border-[#262636] flex items-center justify-between bg-[#191924]/90 select-none">

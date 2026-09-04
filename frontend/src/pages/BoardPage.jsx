@@ -510,7 +510,10 @@ function BoardPage() {
         {/* Read-Only Mode Notice Banner */}
         {isViewer && (
           <div className="relative z-20 bg-amber-500/20 border-b border-amber-500/30 backdrop-blur-md px-4 py-2 text-center text-xs text-amber-200 font-semibold flex items-center justify-center gap-2">
-            <span>👁️</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-300">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
             <span>You are viewing this board in Read-Only mode. Edits, dragging, and additions are restricted.</span>
           </div>
         )}
@@ -997,16 +1000,20 @@ function BoardPage() {
             setIsChatOpen(true)
             setUnreadCount(0)
           }}
-          className="fixed bottom-10 right-14 z-40 bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-1 transition-all hover:scale-105 active:scale-95 border border-purple-400/40 cursor-pointer group backdrop-blur-md w-auto"
+          className="fixed bottom-10 right-12 z-40 bg-[#161622]/90 hover:bg-[#1C1C2B] backdrop-blur-xl border border-purple-500/40 hover:border-purple-400/80 text-white pl-2.5 pr-4 py-2 rounded-2xl shadow-[0_8px_32px_rgba(124,58,237,0.3)] flex items-center gap-2.5 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group select-none"
           title="Open Board Chat"
         >
-          <svg className="w-5 h-5 text-white shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-          </svg>
-          <span className="text-xs font-bold text-white hidden sm:inline group-hover:underline tracking-wide">Chat</span>
+          <div className="w-8 h-8 rounded-xl bg-purple-600/25 border border-purple-500/30 flex items-center justify-center text-purple-300 group-hover:bg-purple-600 group-hover:text-white group-hover:shadow-[0_0_12px_rgba(147,51,234,0.6)] transition-all shrink-0">
+            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+            </svg>
+          </div>
+          <span className="text-xs font-bold text-gray-200 group-hover:text-white tracking-wider transition-colors hidden sm:inline">
+             Chat
+          </span>
 
           {unreadCount > 0 && (
-            <span className="absolute -top-2.5 -right-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-black min-w-[22px] h-5 px-1.5 rounded-full flex items-center justify-center border-2 border-[#14141D] shadow-xl leading-none animate-pulse z-50">
+            <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-black min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center border-2 border-[#161622] shadow-lg leading-none animate-pulse z-50">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
